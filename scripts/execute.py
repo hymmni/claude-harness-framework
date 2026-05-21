@@ -183,7 +183,6 @@ class StepExecutor:
         if docs_dir.is_dir():
             for doc in sorted(docs_dir.glob("*.md")):
                 sections.append(f"## {doc.stem}\n\n{doc.read_text()}")
-        return "\n\n---\n\n".join(sections) if sections else ""
 
     @staticmethod
     def _build_step_context(index: dict) -> str:
@@ -205,11 +204,9 @@ class StepExecutor:
         if prev_error:
             retry_section = (
                 f"\n## ⚠ 이전 시도 실패 — 아래 에러를 반드시 참고하여 수정하라\n\n"
-                f"{prev_error}\n\n---\n\n"
             )
         return (
             f"당신은 {self._project} 프로젝트의 개발자입니다. 아래 step을 수행하세요.\n\n"
-            f"{guardrails}\n\n---\n\n"
             f"{step_context}{retry_section}"
             f"## 작업 규칙\n\n"
             f"1. 이전 step에서 작성된 코드를 확인하고 일관성을 유지하라.\n"
@@ -220,10 +217,9 @@ class StepExecutor:
             f"   - AC 통과 → \"completed\" + \"summary\" 필드에 이 step의 산출물을 한 줄로 요약\n"
             f"   - {self.MAX_RETRIES}회 수정 시도 후에도 실패 → \"error\" + \"error_message\" 기록\n"
             f"   - 사용자 개입이 필요한 경우 (API 키, 인증, 수동 설정 등) → \"blocked\" + \"blocked_reason\" 기록 후 즉시 중단\n"
-            f"6. 모든 변경사항을 커밋하라 (반드시 CLAUDE.md의 Scoped 커밋 규칙과 멀티라인 본문 지침을 따를 것):
-   예: feat(policy): ...
-
----\n\n"
+            f"6. 모든 변경사항을 커밋하라 (반드시 CLAUDE.md의 Scoped 커밋 규칙과 멀티라인 본문 지침을 따를 것):\n"
+            f"   예: feat(policy): ...\n\n"
+            f"---\n\n"
         )
 
     # --- Claude 호출 ---
@@ -242,20 +238,37 @@ class StepExecutor:
         project_context = f"\n## CURRENT WORKSPACE\nActive Project: projects/{active_project}\n\n"
         
         prompt = preamble + project_context + step_file.read_text()
-        result = subprocess.run(
-            ["claude", "-p", "--dangerously-skip-permissions", "--output-format", "json", prompt],
-            cwd=self._root, capture_output=True, text=True, timeout=1800,
-        )
-
-        if result.returncode != 0:
-            print(f"\n  WARN: Claude가 비정상 종료됨 (code {result.returncode})")
-            if result.stderr:
-                print(f"  stderr: {result.stderr[:500]}")
+        
+        try:
+            result = subprocess.run(
+                ["claude", "-p", "--dangerously-skip-permissions", "--output-format", "json", prompt],
+                cwd=self._root, capture_output=True, text=True, timeout=1800,
+            )
+            exit_code = result.returncode
+            out_text = result.stdout
+            err_text = result.stderr
+            
+            if exit_code != 0:
+                print(f"\n  WARN: Claude가 비정상 종료됨 (code {exit_code})")
+                if err_text:
+                    print(f"  stderr: {err_text[:500]}")
+                    
+        except subprocess.TimeoutExpired as e:
+            print(f"\n  WARN: Claude 실행 타임아웃 (1800초 지속됨)")
+            exit_code = 124
+            out_text = ""
+            err_text = f"TimeoutExpired: executed longer than {e.timeout}s"
+            
+        except Exception as e:
+            print(f"\n  WARN: Claude 실행 중 예외 발생: {e}")
+            exit_code = 1
+            out_text = ""
+            err_text = str(e)
 
         output = {
             "step": step_num, "name": step_name,
-            "exitCode": result.returncode,
-            "stdout": result.stdout, "stderr": result.stderr,
+            "exitCode": exit_code,
+            "stdout": out_text, "stderr": err_text,
         }
         out_path = self._phase_dir / f"step{step_num}-output.json"
         with open(out_path, "w") as f:

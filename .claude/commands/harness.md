@@ -107,7 +107,7 @@
 ## Acceptance Criteria
 
 ```bash
-python scripts/test_execution.py  # 파이썬 문법/Import 체크
+python -m pytest tests/  # 파이썬 문법/Import 체크
 ```
 
 ## 검증 절차

@@ -207,7 +207,7 @@ class TestBuildStepContext:
     def test_excludes_pending(self, phase_dir):
         index = json.loads((phase_dir / "index.json").read_text())
         result = ex.StepExecutor._build_step_context(index)
-        assert "ui" not in result
+        assert "policy" not in result
 
     def test_excludes_completed_without_summary(self, phase_dir):
         index = json.loads((phase_dir / "index.json").read_text())
@@ -392,7 +392,7 @@ class TestCommitStep:
             return MagicMock(returncode=0, stdout="", stderr="")
         executor._run_git = fake_git
 
-        executor._commit_step(2, "ui")
+        executor._commit_step(2, "policy")
 
         commit_calls = [c for c in calls if c[0] == "commit"]
         assert len(commit_calls) == 2
@@ -412,7 +412,7 @@ class TestCommitStep:
             return MagicMock(returncode=0, stdout="", stderr="")
         executor._run_git = fake_git
 
-        executor._commit_step(2, "ui")
+        executor._commit_step(2, "policy")
 
         commit_msgs = [c[2] for c in calls if c[0] == "commit"]
         assert len(commit_msgs) == 1
@@ -426,7 +426,7 @@ class TestCommitStep:
 class TestInvokeClaude:
     def test_invokes_claude_with_correct_args(self, executor):
         mock_result = MagicMock(returncode=0, stdout='{"result": "ok"}', stderr="")
-        step = {"step": 2, "name": "ui"}
+        step = {"step": 2, "name": "policy"}
         preamble = "PREAMBLE\n"
 
         with patch("subprocess.run", return_value=mock_result) as mock_run:
@@ -438,11 +438,11 @@ class TestInvokeClaude:
         assert "--dangerously-skip-permissions" in cmd
         assert "--output-format" in cmd
         assert "PREAMBLE" in cmd[-1]
-        assert "UI를 구현하세요" in cmd[-1]
+        assert "Policy 네트워크를 구현하세요" in cmd[-1]
 
     def test_saves_output_json(self, executor):
         mock_result = MagicMock(returncode=0, stdout='{"ok": true}', stderr="")
-        step = {"step": 2, "name": "ui"}
+        step = {"step": 2, "name": "policy"}
 
         with patch("subprocess.run", return_value=mock_result):
             executor._invoke_claude(step, "preamble")
@@ -451,7 +451,7 @@ class TestInvokeClaude:
         assert output_file.exists()
         data = json.loads(output_file.read_text())
         assert data["step"] == 2
-        assert data["name"] == "ui"
+        assert data["name"] == "policy"
         assert data["exitCode"] == 0
 
     def test_nonexistent_step_file_exits(self, executor):
@@ -462,7 +462,7 @@ class TestInvokeClaude:
 
     def test_timeout_is_1800(self, executor):
         mock_result = MagicMock(returncode=0, stdout="{}", stderr="")
-        step = {"step": 2, "name": "ui"}
+        step = {"step": 2, "name": "policy"}
 
         with patch("subprocess.run", return_value=mock_result) as mock_run:
             executor._invoke_claude(step, "preamble")
