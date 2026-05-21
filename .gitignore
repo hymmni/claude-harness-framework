@@ -1,0 +1,51 @@
+# Build and dependencies
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+build/
+dist/
+*.egg-info/
+
+# Robot Research Data (Exclude large files)
+data/
+*.zarr/
+*.hdf5
+*.h5
+*.npy
+*.npz
+*.mp4
+*.record
+
+# Model Checkpoints and Weights
+checkpoints/
+*.pth
+*.pt
+*.ckpt
+*.weights
+
+# Experiment Tracking
+wandb/
+runs/
+.hydra/
+outputs/
+multirun/
+
+# Sub-project specific ignores
+projects/*/.git/
+references/*/.git/
+
+# Standard web leftovers (from original template)
+node_modules/
+.next/
+out/
+next-env.d.ts
+tsconfig.tsbuildinfo
+
+# Phase execution outputs
+phases/**/phase*-output.json
+phases/**/step*-output.json
