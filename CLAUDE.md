@@ -2,7 +2,9 @@
 
 ## 🧪 로봇 연구 프로토콜
 - **작업 시작 전**: 반드시 `Active Project`를 확인하고 선언하십시오. (예: "현재projects/diffusion_policy 프로젝트에서 작업 중입니다.")
-- **수정 범위 (Write Scope)**: 모든 소스 코드 수정은 `projects/<active_project>/` 내부로 엄중히 제한됩니다.- **환경 관리 (Environment)**: 클로드가 패키지를 설치하거나 \`requirements.txt\`, \`environment.yml\`을 생성/수정할 때는 반드시 \`projects/<active_project>/\` 내부에서 수행해야 합니다. 루트 경로는 사용하지 않습니다. - **참조 범위 (Read Scope)**: `references/` 폴더의 오픈소스 코드를 분석하여 로직을 이식하되, 수정은 절대 금지합니다.
+- **수정 범위 (Write Scope)**: 모든 소스 코드 수정은 \`projects/<active_project>/\` 내부로 엄중히 제한됩니다.
+- **환경 관리 (Environment)**: 클로드가 패키지를 설치하거나 \`requirements.txt\`, \`environment.yml\`을 생성/수정할 때는 반드시 \`projects/<active_project>/\` 내부에서 수행해야 합니다. 루트 경로는 사용하지 않습니다. 
+- **참조 범위 (Read Scope)**: \`references/\` 폴더의 오픈소스 코드를 분석하여 로직을 이식하되, 수정은 절대 금지합니다.
 - **출처 표기**: `references/`에서 코드를 가져올 경우 `# From: references/repo_name/file.py`와 같이 주석을 남기십시오.
 - **실험 기록**: 의미 있는 변화(알고리즘 교체, 핵심 파라미터 변경) 발생 시 `experiments/` 내에 기록을 남기십시오.
 
@@ -19,14 +21,14 @@
 3. **Environment Wrapper**: State/Action space mapping & observation stacking
 4. **Trainer/Evaluator**: Training loops and simulation/real-world benchmarks
 
-## �️ 하드웨어 환경 (3-PC Workflow)
+## 🖥️ 하드웨어 환경 (3-PC Workflow)
 현재 프로젝트는 다음 3대의 환경을 오가며 개발됩니다. 코드를 설계할 때 이 환경의 제약을 반드시 고려하십시오.
 1. **코딩용 PC (Local)**: GPU 없음. 코드 작성, 리팩토링, Git 관리 수행. (이 하네스가 주로 실행되는 곳)
 2. **학습용 PC (Server)**: GPU 있음. 대용량 데이터 전처리 및 모델 학습 (WandB로 로깅).
 3. **추론용 PC (Robot)**: GPU 있음. 로봇과 연결하여 실제 모델 추론 및 배포.
 * **주의**: 코딩용 PC에는 GPU가 없으므로, 하네스 환경 내에서 코드를 테스트할 때는 CPU Fallback(`device='cuda' if torch.cuda.is_available() else 'cpu'`) 처리가 되어 있어야 합니다.
 
-## �📝 개발 프로세스
+## 📝 개발 프로세스
 - **Phase Execution**: `scripts/execute.py`를 사용하여 복잡한 리팩토링이나 구현 단계를 안전하게 수행하십시오.
 - **Commit Message**: Conventional Commits (`feat:`, `fix:`, `refactor:`) + 상세 설명.
 - 작업을 완료할 때마다 `experiments/`에 수정 사항 요약을 작성하십시오.
