@@ -220,8 +220,10 @@ class StepExecutor:
             f"   - AC 통과 → \"completed\" + \"summary\" 필드에 이 step의 산출물을 한 줄로 요약\n"
             f"   - {self.MAX_RETRIES}회 수정 시도 후에도 실패 → \"error\" + \"error_message\" 기록\n"
             f"   - 사용자 개입이 필요한 경우 (API 키, 인증, 수동 설정 등) → \"blocked\" + \"blocked_reason\" 기록 후 즉시 중단\n"
-            f"6. 모든 변경사항을 커밋하라:\n"
-            f"   {commit_example}\n\n---\n\n"
+            f"6. 모든 변경사항을 커밋하라 (반드시 CLAUDE.md의 Scoped 커밋 규칙과 멀티라인 본문 지침을 따를 것):
+   예: feat(policy): ...
+
+---\n\n"
         )
 
     # --- Claude 호출 ---

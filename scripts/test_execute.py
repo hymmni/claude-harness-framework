@@ -51,11 +51,11 @@ def phase_dir(tmp_project):
         "steps": [
             {"step": 0, "name": "setup", "status": "completed", "summary": "프로젝트 초기화 완료"},
             {"step": 1, "name": "core", "status": "completed", "summary": "핵심 로직 구현"},
-            {"step": 2, "name": "ui", "status": "pending"},
+            {"step": 2, "name": "policy", "status": "pending"},
         ],
     }
     (d / "index.json").write_text(json.dumps(index, indent=2, ensure_ascii=False))
-    (d / "step2.md").write_text("# Step 2: UI\n\nUI를 구현하세요.")
+    (d / "step2.md").write_text("# Step 2: Policy\n\nPolicy 네트워크를 구현하세요.")
 
     return d
 

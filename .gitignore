@@ -39,13 +39,6 @@ multirun/
 projects/*/.git/
 references/*/.git/
 
-# Standard web leftovers (from original template)
-node_modules/
-.next/
-out/
-next-env.d.ts
-tsconfig.tsbuildinfo
-
 # Phase execution outputs
 phases/**/phase*-output.json
 phases/**/step*-output.json
