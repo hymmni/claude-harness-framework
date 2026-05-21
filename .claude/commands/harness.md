@@ -107,8 +107,7 @@
 ## Acceptance Criteria
 
 ```bash
-npm run build   # 컴파일 에러 없음
-npm test        # 테스트 통과
+python scripts/test_execution.py  # 파이썬 문법/Import 체크
 ```
 
 ## 검증 절차
