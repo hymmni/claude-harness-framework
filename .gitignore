@@ -35,8 +35,7 @@ runs/
 outputs/
 multirun/
 
-# Sub-project specific ignores
-projects/*/.git/
+# Reference repos (cloned for analysis, not tracked)
 references/*/.git/
 
 # Phase execution outputs

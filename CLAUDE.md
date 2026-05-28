@@ -1,9 +1,8 @@
 # Harness Framework: Robot Behavior Intelligence Research
 
 ## 🧪 로봇 연구 프로토콜
-- **작업 시작 전**: 반드시 `Active Project`를 확인하고 선언하십시오. (예: "현재projects/diffusion_policy 프로젝트에서 작업 중입니다.")
-- **수정 범위 (Write Scope)**: 모든 소스 코드 수정은 \`projects/<active_project>/\` 내부로 엄중히 제한됩니다.
-- **환경 관리 (Environment)**: 클로드가 패키지를 설치하거나 \`requirements.txt\`, \`environment.yml\`을 생성/수정할 때는 반드시 \`projects/<active_project>/\` 내부에서 수행해야 합니다. 루트 경로는 사용하지 않습니다. 
+- **수정 범위 (Write Scope)**: 모든 소스 코드 수정은 이 작업 레포지토리 내부에서 수행합니다. (단, `references/`는 읽기 전용 — 아래 참조)
+- **환경 관리 (Environment)**: 패키지 설치 및 \`requirements.txt\`, \`environment.yml\` 생성/수정은 레포지토리 루트에서 관리합니다.
 - **참조 범위 (Read Scope)**: \`references/\` 폴더의 오픈소스 코드를 분석하여 로직을 이식하되, 수정은 절대 금지합니다.
 - **출처 표기**: `references/`에서 코드를 가져올 경우 `# From: references/repo_name/file.py`와 같이 주석을 남기십시오.
 - **실험 기록**: 의미 있는 변화(알고리즘 교체, 핵심 파라미터 변경) 발생 시 `experiments/` 내에 기록을 남기십시오.

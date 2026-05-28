@@ -1,6 +1,6 @@
 # Robot Learning Architecture
 
-이 문서는 `harness_framework`를 사용하는 로봇 행동 지능 연구 프로젝트의 표준 아키텍처 가이드라인을 담고 있습니다.
+이 문서는 이 하네스를 적용한 로봇 행동 지능 연구 프로젝트의 표준 아키텍처 가이드라인을 담고 있습니다.
 
 ## 1. 데이터 흐름 (Data Flow)
 ```mermaid

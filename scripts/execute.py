@@ -111,7 +111,7 @@ class StepExecutor:
         return subprocess.run(cmd, cwd=self._root, capture_output=True, text=True)
 
     def _checkout_branch(self):
-        branch = f"feat-{self._phase_name}"
+        branch = f"feat/{self._phase_name}"
 
         r = self._run_git("rev-parse", "--abbrev-ref", "HEAD")
         if r.returncode != 0:
@@ -183,6 +183,7 @@ class StepExecutor:
         if docs_dir.is_dir():
             for doc in sorted(docs_dir.glob("*.md")):
                 sections.append(f"## {doc.stem}\n\n{doc.read_text()}")
+        return "\n\n---\n\n".join(sections)
 
     @staticmethod
     def _build_step_context(index: dict) -> str:
@@ -200,13 +201,18 @@ class StepExecutor:
         commit_example = self.FEAT_MSG.format(
             phase=self._phase_name, num="N", name="<step-name>"
         )
+        guardrail_section = ""
+        if guardrails:
+            guardrail_section = f"## 가드레일 (반드시 준수)\n\n{guardrails}\n\n---\n\n"
         retry_section = ""
         if prev_error:
             retry_section = (
                 f"\n## ⚠ 이전 시도 실패 — 아래 에러를 반드시 참고하여 수정하라\n\n"
+                f"{prev_error}\n\n"
             )
         return (
             f"당신은 {self._project} 프로젝트의 개발자입니다. 아래 step을 수행하세요.\n\n"
+            f"{guardrail_section}"
             f"{step_context}{retry_section}"
             f"## 작업 규칙\n\n"
             f"1. 이전 step에서 작성된 코드를 확인하고 일관성을 유지하라.\n"
@@ -218,7 +224,7 @@ class StepExecutor:
             f"   - {self.MAX_RETRIES}회 수정 시도 후에도 실패 → \"error\" + \"error_message\" 기록\n"
             f"   - 사용자 개입이 필요한 경우 (API 키, 인증, 수동 설정 등) → \"blocked\" + \"blocked_reason\" 기록 후 즉시 중단\n"
             f"6. 모든 변경사항을 커밋하라 (반드시 CLAUDE.md의 Scoped 커밋 규칙과 멀티라인 본문 지침을 따를 것):\n"
-            f"   예: feat(policy): ...\n\n"
+            f"   예: {commit_example}\n\n"
             f"---\n\n"
         )
 
@@ -232,11 +238,11 @@ class StepExecutor:
             print(f"  ERROR: {step_file} not found")
             sys.exit(1)
 
-        # Ensure Active Project context is available in prompt
+        # Project name is a label only; work happens at the repository root.
         idx = self._read_json(self._index_file)
-        active_project = idx.get("project", "unknown")
-        project_context = f"\n## CURRENT WORKSPACE\nActive Project: projects/{active_project}\n\n"
-        
+        project_name = idx.get("project", "unknown")
+        project_context = f"\n## CURRENT WORKSPACE\nProject: {project_name} (repository root)\n\n"
+
         prompt = preamble + project_context + step_file.read_text()
         
         try:
@@ -412,7 +418,7 @@ class StepExecutor:
                 print(f"  ✓ {msg}")
 
         if self._auto_push:
-            branch = f"feat-{self._phase_name}"
+            branch = f"feat/{self._phase_name}"
             r = self._run_git("push", "-u", "origin", branch)
             if r.returncode != 0:
                 print(f"\n  ERROR: git push 실패: {r.stderr.strip()}")

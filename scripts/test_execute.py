@@ -339,7 +339,7 @@ class TestCheckoutBranch:
 
     def test_already_on_branch(self, executor):
         self._mock_git(executor, [
-            MagicMock(returncode=0, stdout="feat-mvp\n", stderr=""),
+            MagicMock(returncode=0, stdout="feat/mvp\n", stderr=""),
         ])
         executor._checkout_branch()  # should return without checkout
 

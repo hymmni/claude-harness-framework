@@ -1,7 +1,7 @@
 # Experiment Log: [YYYY-MM-DD] [Project Name]
 
 ## 1. 개요 (Overview)
-- **수정 대상**: `projects/<project_name>/path/to/file.py`
+- **수정 대상**: `path/to/file.py`
 - **참조 소스**: `references/<repo_name>/path/to/file.py`
 - **목표**: (예: Diffusion Policy의 손실 함수에 에너트로피 항 추가)
 
