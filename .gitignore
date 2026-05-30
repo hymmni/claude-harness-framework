@@ -1,43 +1,12 @@
-# Build and dependencies
+# >>> harness gitignore (managed) >>>
+CLAUDE.md
+CLAUDE.harness.md
+.claude/
+docs/
+experiments/
+phases/
+references/
+scripts/
+# <<< harness gitignore (managed) <<<
 __pycache__/
 *.py[cod]
-*$py.class
-*.so
-.Python
-env/
-venv/
-.venv/
-build/
-dist/
-*.egg-info/
-
-# Robot Research Data (Exclude large files)
-data/
-*.zarr/
-*.hdf5
-*.h5
-*.npy
-*.npz
-*.mp4
-*.record
-
-# Model Checkpoints and Weights
-checkpoints/
-*.pth
-*.pt
-*.ckpt
-*.weights
-
-# Experiment Tracking
-wandb/
-runs/
-.hydra/
-outputs/
-multirun/
-
-# Reference repos (cloned for analysis, not tracked)
-references/*/.git/
-
-# Phase execution outputs
-phases/**/phase*-output.json
-phases/**/step*-output.json

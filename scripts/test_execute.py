@@ -33,8 +33,11 @@ def tmp_project(tmp_path):
 
     docs_dir = tmp_path / "docs"
     docs_dir.mkdir()
-    (docs_dir / "arch.md").write_text("# Architecture\nSome content")
-    (docs_dir / "guide.md").write_text("# Guide\nAnother doc")
+    # GUARDRAIL_DOCS 에 등록된 문서 (주입 대상)
+    (docs_dir / "ARCHITECTURE.md").write_text("# Architecture\nSome content")
+    (docs_dir / "ADR.md").write_text("# ADR\nDecisions")
+    # 등록되지 않은 무관한 문서 (주입되면 안 됨 — 기존 repo 오염 시나리오)
+    (docs_dir / "UNRELATED.md").write_text("# Unrelated\nproject's own doc")
 
     return tmp_path
 
@@ -146,25 +149,31 @@ class TestJsonHelpers:
 # ---------------------------------------------------------------------------
 
 class TestLoadGuardrails:
-    def test_loads_claude_md_and_docs(self, executor, tmp_project):
+    def test_loads_claude_md_and_allowlisted_docs(self, executor, tmp_project):
         with patch.object(ex, "ROOT", tmp_project):
             result = executor._load_guardrails()
         assert "# Rules" in result
         assert "rule one" in result
         assert "# Architecture" in result
-        assert "# Guide" in result
+        assert "# ADR" in result
+
+    def test_unlisted_doc_is_not_injected(self, executor, tmp_project):
+        # 기존 repo의 무관한 docs/*.md 가 가드레일에 섞이지 않아야 한다 (footgun 방지).
+        with patch.object(ex, "ROOT", tmp_project):
+            result = executor._load_guardrails()
+        assert "Unrelated" not in result
+        assert "project's own doc" not in result
 
     def test_sections_separated_by_divider(self, executor, tmp_project):
         with patch.object(ex, "ROOT", tmp_project):
             result = executor._load_guardrails()
         assert "---" in result
 
-    def test_docs_sorted_alphabetically(self, executor, tmp_project):
+    def test_docs_in_allowlist_order(self, executor, tmp_project):
+        # GUARDRAIL_DOCS 순서(ARCHITECTURE → ADR)대로 주입된다.
         with patch.object(ex, "ROOT", tmp_project):
             result = executor._load_guardrails()
-        arch_pos = result.index("arch")
-        guide_pos = result.index("guide")
-        assert arch_pos < guide_pos
+        assert result.index("Architecture") < result.index("ADR")
 
     def test_no_claude_md(self, executor, tmp_project):
         (tmp_project / "CLAUDE.md").unlink()
@@ -383,40 +392,82 @@ class TestCheckoutBranch:
 # ---------------------------------------------------------------------------
 
 class TestCommitStep:
-    def test_two_phase_commit(self, executor):
+    def test_squashes_into_single_commit(self, executor):
         calls = []
         def fake_git(*args):
             calls.append(args)
+            if args[0] == "log":
+                return MagicMock(returncode=0, stdout="wip: scaffold\nfix: typo\n", stderr="")
             if args[:2] == ("diff", "--cached"):
-                return MagicMock(returncode=1)
+                return MagicMock(returncode=1)  # 변경 있음
             return MagicMock(returncode=0, stdout="", stderr="")
         executor._run_git = fake_git
 
-        executor._commit_step(2, "policy")
+        executor._commit_step(2, "policy", "abc123")
+
+        # step 시작 시점으로 soft reset 후 단일 커밋
+        assert ("reset", "--soft", "abc123") in calls
+        commit_calls = [c for c in calls if c[0] == "commit"]
+        assert len(commit_calls) == 1
+        # commit("-m", subject, "-m", body)
+        subject = commit_calls[0][2]
+        body = commit_calls[0][4]
+        assert "feat(mvp): step 2 — policy" in subject
+        assert "wip: scaffold" in body and "fix: typo" in body
+
+    def test_no_changes_skips_commit(self, executor):
+        calls = []
+        def fake_git(*args):
+            calls.append(args)
+            if args[0] == "log":
+                return MagicMock(returncode=0, stdout="", stderr="")
+            if args[:2] == ("diff", "--cached"):
+                return MagicMock(returncode=0)  # 변경 없음
+            return MagicMock(returncode=0, stdout="", stderr="")
+        executor._run_git = fake_git
+
+        executor._commit_step(2, "policy", "abc123")
+
+        assert not [c for c in calls if c[0] == "commit"]
+
+    def test_failed_step_uses_wip_not_feat(self, executor):
+        calls = []
+        def fake_git(*args):
+            calls.append(args)
+            if args[0] == "log":
+                return MagicMock(returncode=0, stdout="wip: attempt\n", stderr="")
+            if args[:2] == ("diff", "--cached"):
+                return MagicMock(returncode=1)  # 변경 있음
+            return MagicMock(returncode=0, stdout="", stderr="")
+        executor._run_git = fake_git
+
+        executor._commit_step(2, "policy", "abc123", failed=True)
 
         commit_calls = [c for c in calls if c[0] == "commit"]
-        assert len(commit_calls) == 2
-        assert "feat(mvp):" in commit_calls[0][2]
-        assert "chore(mvp):" in commit_calls[1][2]
+        assert len(commit_calls) == 1
+        subject = commit_calls[0][2]
+        body = commit_calls[0][4]
+        # 실패 step은 feat 가 아니라 wip + FAILED 로 정직하게 표기
+        assert "wip(mvp): step 2 — policy (FAILED)" in subject
+        assert "feat(" not in subject
+        assert "status=error" in body and "index.json" in body
 
-    def test_no_code_changes_skips_feat_commit(self, executor):
-        call_count = {"diff": 0}
+    def test_fallback_without_start_sha(self, executor):
         calls = []
         def fake_git(*args):
             calls.append(args)
             if args[:2] == ("diff", "--cached"):
-                call_count["diff"] += 1
-                if call_count["diff"] == 1:
-                    return MagicMock(returncode=0)
                 return MagicMock(returncode=1)
             return MagicMock(returncode=0, stdout="", stderr="")
         executor._run_git = fake_git
 
-        executor._commit_step(2, "policy")
+        executor._commit_step(2, "policy", None)
 
-        commit_msgs = [c[2] for c in calls if c[0] == "commit"]
-        assert len(commit_msgs) == 1
-        assert "chore" in commit_msgs[0]
+        # 압축 기준점이 없으면 soft reset 없이 단일 커밋만
+        assert not [c for c in calls if c[0] == "reset" and "--soft" in c]
+        commit_calls = [c for c in calls if c[0] == "commit"]
+        assert len(commit_calls) == 1
+        assert "feat(mvp): step 2 — policy" in commit_calls[0][2]
 
 
 # ---------------------------------------------------------------------------

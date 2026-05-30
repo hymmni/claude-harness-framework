@@ -55,7 +55,12 @@ class StepExecutor:
 
     MAX_RETRIES = 3
     FEAT_MSG = "feat({phase}): step {num} — {name}"
-    CHORE_MSG = "chore({phase}): step {num} output"
+    FAIL_MSG = "wip({phase}): step {num} — {name} (FAILED)"
+    # 매 step 프롬프트에 주입할 가드레일 문서 (docs/ 하위). glob이 아닌 명시 목록이다.
+    # 코드 구현에 직접 필요한 기술 가드레일만 둔다. ROBOT_GUIDE.md(사람용 워크플로우 안내)는
+    # 제외 — 3-PC/CPU-fallback 등 step에 필요한 규칙은 이미 CLAUDE.md로 주입된다.
+    # 새 가드레일 문서를 추가하려면 여기에 파일명을 등록하라.
+    GUARDRAIL_DOCS = ("ARCHITECTURE.md", "ADR.md")
     TZ = timezone(timedelta(hours=9))
 
     def __init__(self, phase_dir_name: str, *, auto_push: bool = False):
@@ -133,28 +138,64 @@ class StepExecutor:
 
         print(f"  Branch: {branch}")
 
-    def _commit_step(self, step_num: int, step_name: str):
-        output_rel = f"phases/{self._phase_dir_name}/step{step_num}-output.json"
-        index_rel = f"phases/{self._phase_dir_name}/index.json"
+    def _current_head(self) -> Optional[str]:
+        """현재 HEAD의 커밋 SHA. 커밋이 하나도 없으면 None."""
+        r = self._run_git("rev-parse", "HEAD")
+        return r.stdout.strip() if r.returncode == 0 else None
 
-        self._run_git("add", "-A")
-        self._run_git("reset", "HEAD", "--", output_rel)
-        self._run_git("reset", "HEAD", "--", index_rel)
+    def _commit_step(self, step_num: int, step_name: str,
+                     step_start_sha: Optional[str] = None, *, failed: bool = False):
+        """Step에서 생긴 모든 작업 커밋을 하나로 압축(squash)한다.
 
-        if self._run_git("diff", "--cached", "--quiet").returncode != 0:
-            msg = self.FEAT_MSG.format(phase=self._phase_name, num=step_num, name=step_name)
-            r = self._run_git("commit", "-m", msg)
+        Claude가 step 진행 중 만든 잡다한 중간 커밋(step{N}-1, step{N}-2, 재시도
+        노이즈 등)과 남은 워킹트리 변경을 step 시작 시점(step_start_sha)으로
+        soft reset해 단일 커밋으로 합친다. 압축 커밋 메시지는 CLAUDE.md의 Scoped
+        Conventional Commits 규칙을 따르며, 본문에 원본 커밋 제목들을 상세히 기록한다.
+
+        failed=True면 step이 최종 실패한 경우다. 미완성 작업을 보존하되 git log가
+        성공처럼 보이지 않도록 feat 대신 `wip(... )(FAILED)` 제목으로 커밋한다.
+
+        step_start_sha가 없으면(예: 최초 커밋 이전) 압축 없이 단일 커밋으로 폴백한다.
+        """
+        original_subjects = []
+        if step_start_sha:
+            # step 시작 이후 만들어진 중간 커밋들의 제목을 오래된 순으로 수집한다.
+            r = self._run_git("log", "--reverse", "--format=%s", f"{step_start_sha}..HEAD")
             if r.returncode == 0:
-                print(f"  Commit: {msg}")
-            else:
-                print(f"  WARN: 코드 커밋 실패: {r.stderr.strip()}")
+                original_subjects = [ln for ln in r.stdout.splitlines() if ln.strip()]
+            # 중간 커밋을 모두 풀어 변경분을 스테이지에 남긴다(이력만 되감김, 파일 보존).
+            self._run_git("reset", "--soft", step_start_sha)
 
         self._run_git("add", "-A")
-        if self._run_git("diff", "--cached", "--quiet").returncode != 0:
-            msg = self.CHORE_MSG.format(phase=self._phase_name, num=step_num)
-            r = self._run_git("commit", "-m", msg)
-            if r.returncode != 0:
-                print(f"  WARN: housekeeping 커밋 실패: {r.stderr.strip()}")
+        if self._run_git("diff", "--cached", "--quiet").returncode == 0:
+            return  # 이번 step에서 순 변경 없음 — 커밋 생략
+
+        tmpl = self.FAIL_MSG if failed else self.FEAT_MSG
+        subject = tmpl.format(phase=self._phase_name, num=step_num, name=step_name)
+        body = self._compose_squash_body(step_num, step_name, original_subjects, failed=failed)
+        r = self._run_git("commit", "-m", subject, "-m", body)
+        if r.returncode == 0:
+            note = f" ({len(original_subjects)} commits squashed)" if original_subjects else ""
+            print(f"  Commit: {subject}{note}")
+        else:
+            print(f"  WARN: step 커밋 실패: {r.stderr.strip()}")
+
+    def _compose_squash_body(self, step_num: int, step_name: str,
+                             original_subjects: list, *, failed: bool = False) -> str:
+        """압축 커밋 본문을 구성한다. 원본 커밋 제목을 컨벤션에 맞게 요약/나열한다."""
+        lines = [f"Squash all working commits from step {step_num} ({step_name}) into one."]
+        if failed:
+            index_rel = f"phases/{self._phase_dir_name}/index.json"
+            lines.append("")
+            lines.append(f"Step did NOT pass: status=error after {self.MAX_RETRIES} retries.")
+            lines.append(f"Work preserved for debugging; see {index_rel} for error_message.")
+        lines.append("")
+        if original_subjects:
+            lines.append(f"Original commits ({len(original_subjects)}, oldest first):")
+            lines += [f"- {s}" for s in original_subjects]
+        else:
+            lines.append("No intermediate commits; staged working-tree changes only.")
+        return "\n".join(lines)
 
     # --- top-level index ---
 
@@ -175,13 +216,17 @@ class StepExecutor:
     # --- guardrails & context ---
 
     def _load_guardrails(self) -> str:
+        # docs/*.md 전체를 glob하지 않고 GUARDRAIL_DOCS 명시 목록만 주입한다.
+        # 이유: 기존 코드가 있는 repo에 harness를 덧붙일 때, 그 repo의 무관한 docs/*.md가
+        # 매 step 프롬프트에 섞여 노이즈/토큰 낭비가 되는 것을 방지한다(silent footgun).
         sections = []
         claude_md = ROOT / "CLAUDE.md"
         if claude_md.exists():
             sections.append(f"## 프로젝트 규칙 (CLAUDE.md)\n\n{claude_md.read_text()}")
         docs_dir = ROOT / "docs"
-        if docs_dir.is_dir():
-            for doc in sorted(docs_dir.glob("*.md")):
+        for name in self.GUARDRAIL_DOCS:
+            doc = docs_dir / name
+            if doc.exists():
                 sections.append(f"## {doc.stem}\n\n{doc.read_text()}")
         return "\n\n---\n\n".join(sections)
 
@@ -223,8 +268,10 @@ class StepExecutor:
             f"   - AC 통과 → \"completed\" + \"summary\" 필드에 이 step의 산출물을 한 줄로 요약\n"
             f"   - {self.MAX_RETRIES}회 수정 시도 후에도 실패 → \"error\" + \"error_message\" 기록\n"
             f"   - 사용자 개입이 필요한 경우 (API 키, 인증, 수동 설정 등) → \"blocked\" + \"blocked_reason\" 기록 후 즉시 중단\n"
-            f"6. 모든 변경사항을 커밋하라 (반드시 CLAUDE.md의 Scoped 커밋 규칙과 멀티라인 본문 지침을 따를 것):\n"
-            f"   예: {commit_example}\n\n"
+            f"6. 모든 변경사항을 커밋하라 (반드시 CLAUDE.md의 Scoped 커밋 규칙과 멀티라인 본문 지침을 따를 것).\n"
+            f"   step 진행 중 여러 번 커밋해도 좋다 — 하네스가 step 종료 시 이 커밋들을\n"
+            f"   하나로 압축(squash)하고, 원본 커밋 제목들을 압축 커밋 본문에 요약해 남긴다.\n"
+            f"   따라서 각 중간 커밋 제목을 의미 있게 작성하라. 압축 커밋 예시: {commit_example}\n\n"
             f"---\n\n"
         )
 
@@ -321,6 +368,9 @@ class StepExecutor:
         step_num, step_name = step["step"], step["name"]
         done = sum(1 for s in self._read_json(self._index_file)["steps"] if s["status"] == "completed")
         prev_error = None
+        # 압축 기준점: 이 step의 어떤 시도도 시작하기 전의 HEAD.
+        # 성공/최종실패 시 이 시점 이후의 모든 중간 커밋을 하나로 압축한다.
+        step_start_sha = self._current_head()
 
         for attempt in range(1, self.MAX_RETRIES + 1):
             index = self._read_json(self._index_file)
@@ -344,7 +394,7 @@ class StepExecutor:
                     if s["step"] == step_num:
                         s["completed_at"] = ts
                 self._write_json(self._index_file, index)
-                self._commit_step(step_num, step_name)
+                self._commit_step(step_num, step_name, step_start_sha)
                 print(f"  ✓ Step {step_num}: {step_name} [{elapsed}s]")
                 return True
 
@@ -379,7 +429,7 @@ class StepExecutor:
                         s["error_message"] = f"[{self.MAX_RETRIES}회 시도 후 실패] {err_msg}"
                         s["failed_at"] = ts
                 self._write_json(self._index_file, index)
-                self._commit_step(step_num, step_name)
+                self._commit_step(step_num, step_name, step_start_sha, failed=True)
                 print(f"  ✗ Step {step_num}: {step_name} failed after {self.MAX_RETRIES} attempts [{elapsed}s]")
                 print(f"    Error: {err_msg}")
                 self._update_top_index("error")

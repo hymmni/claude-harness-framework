@@ -141,10 +141,47 @@ execute.py가 자동으로 처리하는 것:
 - 가드레일 주입 — CLAUDE.md + docs/*.md 내용을 매 step 프롬프트에 포함
 - 컨텍스트 누적 — 완료된 step의 summary를 다음 step 프롬프트에 전달
 - 자가 교정 — 실패 시 최대 3회 재시도하며, 이전 에러 메시지를 프롬프트에 피드백
-- 2단계 커밋 — 코드 변경(`feat`)과 메타데이터(`chore`)를 분리 커밋
+- **step별 squash 커밋** — 아래 "커밋 전략" 참조
 - 타임스탬프 — started_at, completed_at, failed_at, blocked_at 자동 기록
+
+#### 커밋 전략 (step별 squash)
+
+브랜치/커밋 구조는 다음과 같다:
+
+```
+main
+ └─ feat/{task-name}
+      ├─ feat({phase}): step 0 — project-setup   ← step 0의 모든 중간 커밋이 1개로 압축
+      ├─ feat({phase}): step 1 — core-policy      ← step 1의 모든 중간 커밋이 1개로 압축
+      └─ ...
+```
+
+- step 진행 중 Claude는 자유롭게 여러 번 커밋한다(재시도 노이즈 포함).
+- step이 **completed**(또는 최종 **error**)에 도달하면, execute.py가 step 시작 시점의 HEAD로 `git reset --soft`한 뒤, 그 사이의 모든 변경을 **단일 커밋**으로 압축한다.
+- 압축 커밋의 제목은 `feat({phase}): step {N} — {name}` (CLAUDE.md의 Scoped Conventional Commits 규칙). **본문에는 원본 중간 커밋 제목들이 오래된 순으로 요약·기록**되어 추적성을 유지한다.
+- 결과적으로 `feat/{task-name}` 브랜치 히스토리는 "step = 커밋 1개"로 깔끔하게 정렬되며, 상세 맥락은 커밋 본문 + `experiments/` 기록에 남는다.
+
+> **압축 범위는 step 단위뿐이다.** main 병합 시에는 압축하지 않는다 (각 step 커밋을 그대로 보존). execute.py는 main을 절대 건드리지 않는다.
+
+#### main 병합 (수동 / opt-in 헬퍼)
+
+main 병합은 **하네스가 자동으로 하지 않는다.** 보통 사용자가 직접 수행하며, 권장 시퀀스는 다음과 같다:
+
+1. local `main` 으로 checkout 후 `origin/main` 을 fast-forward pull
+2. `feat/{task-name}` 에서 `main` 을 rebase (히스토리 선형 유지)
+3. `main` 으로 돌아와 `--no-ff` 로 병합 (step 커밋들을 보존하면서 병합 지점 명시)
+
+이 시퀀스를 그대로 인코딩한 opt-in 헬퍼가 있다. **명시적으로 실행할 때만** 동작하며, rebase 충돌 시 자동 abort 후 안내하고, force push는 하지 않는다:
+
+```bash
+python3 scripts/merge_to_main.py [feat-branch]          # 생략 시 현재 브랜치
+python3 scripts/merge_to_main.py feat/0-mvp --push      # 병합 후 origin/main push
+python3 scripts/merge_to_main.py feat/0-mvp --yes       # 확인 프롬프트 생략
+```
+
+> **주의**: rebase는 feature 브랜치 히스토리를 재작성한다. 이미 `--push`로 공유된(다른 PC가 pull한) feature 브랜치라면, 병합 후 그 브랜치는 종료된 것으로 간주하고 재사용·재push하지 마라 (origin과 발산하므로 force push가 필요해진다).
 
 에러 복구:
 
-- **error 발생 시**: `phases/{task-name}/index.json`에서 해당 step의 `status`를 `"pending"`으로 바꾸고 `error_message`를 삭제한 뒤 재실행한다.
+- **error 발생 시**: `phases/{task-name}/index.json`에서 해당 step의 `status`를 `"pending"`으로 바꾸고 `error_message`를 삭제한 뒤 재실행한다. 실패한 step은 `wip({phase}): step N — name (FAILED)` 커밋으로 보존돼 있다 — 재실행 전 그 작업이 불필요하면 `git reset --hard HEAD~1`로 정리한 뒤 재실행하면 히스토리가 깔끔하다 (그대로 둬도 다음 성공 커밋이 그 위에 쌓일 뿐 동작엔 문제없다).
 - **blocked 발생 시**: `blocked_reason`에 적힌 사유를 해결한 뒤, `status`를 `"pending"`으로 바꾸고 `blocked_reason`을 삭제한 뒤 재실행한다.

@@ -34,3 +34,10 @@
 
 ## 🛠️ 유틸리티 명령어
 - `python scripts/execute.py <phase_dir>` # 클로드의 자가 교정 실행 (하네스 내부용)
+- `python scripts/merge_to_main.py <feat-branch> [--push]` # feature 브랜치를 main에 병합 (pull→rebase→`--no-ff`)
+
+### 🔀 main 병합 규칙 (CRITICAL)
+사용자가 feature 브랜치를 **main에 병합**해달라고 요청하면:
+- **반드시 `scripts/merge_to_main.py` 사용을 안내하라.** `git merge`/`git rebase`를 직접 치지 마라. 이유: 이 스크립트가 `pull --ff-only` → `rebase` → `--no-ff merge` 순서와 충돌 시 자동 abort를 보장한다.
+- **클로드가 직접 실행하지 마라.** main/origin을 건드리는 작업이므로, 실행할 명령어(`python3 scripts/merge_to_main.py <feat-branch>`)를 제시하고 **사용자가 직접 실행**하게 하라. (사용자가 명시적으로 "네가 실행해"라고 하면 그때만 `--yes`를 붙여 실행)
+- step 압축(squash)은 feature 브랜치 내부에서만 일어나며, main 병합 시에는 각 step 커밋을 그대로 보존한다.
