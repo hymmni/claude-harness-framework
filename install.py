@@ -41,6 +41,7 @@ experiments/
 phases/
 references/
 scripts/
+continuation_plan.md
 """
 
 # 어느 깊이에서든 복사하지 않을 잡파일 (git 메타, 캐시 등)
@@ -84,7 +85,7 @@ def confirm(prompt: str, assume_yes: bool) -> bool:
     if assume_yes:
         return True
     try:
-        return input(f"{prompt} [y/N] ").strip().lower() in ("y", "yes")
+        return input(f"{prompt} [y/n] ").strip().lower() in ("y", "yes")
     except EOFError:
         return False
 

@@ -1,3 +1,6 @@
+__pycache__/
+*.py[cod]
+
 # >>> harness gitignore (managed) >>>
 CLAUDE.md
 CLAUDE.harness.md
@@ -7,6 +10,5 @@ experiments/
 phases/
 references/
 scripts/
+continuation_plan.md
 # <<< harness gitignore (managed) <<<
-__pycache__/
-*.py[cod]

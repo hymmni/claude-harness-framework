@@ -1,5 +1,12 @@
 # Harness Framework: Robot Behavior Intelligence Research
 
+## 🚀 세션 시작 체크리스트
+새 세션을 시작할 때 반드시 수행하라:
+1. `README.md`를 읽고 프로젝트 구조와 적용 방법을 파악한다.
+2. 가상환경이 있는지 확인한다(`venv/`, `.venv/`, `conda` 환경 등). 있으면 해당 환경에서 작업한다.
+   - conda: `conda activate <env>` / venv: `source venv/bin/activate`
+3. `continuation_plan.md`가 있으면 읽고 이전 세션의 중단 지점부터 이어서 시작한다.
+
 ## 🧪 로봇 연구 프로토콜
 - **수정 범위 (Write Scope)**: 모든 소스 코드 수정은 이 작업 레포지토리 내부에서 수행합니다. (단, `references/`는 읽기 전용 — 아래 참조)
 - **환경 관리 (Environment)**: 패키지 설치 및 \`requirements.txt\`, \`environment.yml\` 생성/수정은 레포지토리 루트에서 관리합니다.
@@ -32,9 +39,32 @@
 - **Commit Message**: Scoped Conventional Commits 사용. **커밋 메시지(제목·본문)는 영어로 작성**한다. 괄호 안에 수정된 모듈 영역(`policy`, `env`, `data`, `config`, `harness` 등 베이스라인 이름이나 모듈)을 명시하고, **반드시 본문에 멀티라인(여러 줄) 상세 설명을 추가**하십시오. (예: `feat(policy): short description` + 본문 상세)
 - 작업을 완료할 때마다 `experiments/`에 수정 사항 요약을 작성하십시오.
 
+## 🤖 모델 선택 가이드
+작업 복잡도에 따라 적절한 모델을 사용자에게 제안하라. 클로드는 실행 중인 세션의 모델을 변경할 수 없으므로, 모델 선택은 **세션 시작 전** 또는 **execute.py 실행 시** 이루어진다.
+
+| 모델 | 적합한 작업 |
+|---|---|
+| **opus** | 신규 아키텍처 설계, 복잡한 알고리즘 구현, 다단계 추론이 필요한 phase |
+| **sonnet** | 일반 코딩, 리팩토링, 대부분의 day-to-day 작업 (기본값) |
+| **haiku** | 단순 수정, 문서 작성, 빠른 조회성 작업 |
+
+execute.py로 step을 실행할 때 모델 지정:
+```bash
+python3 scripts/execute.py <phase_dir> --model opus   # 복잡한 phase
+python3 scripts/execute.py <phase_dir> --model haiku  # 단순한 phase
+```
+
 ## 🛠️ 유틸리티 명령어
-- `python scripts/execute.py <phase_dir>` # 클로드의 자가 교정 실행 (하네스 내부용)
+- `python scripts/execute.py <phase_dir> [--model MODEL]` # 클로드의 자가 교정 실행 (하네스 내부용)
 - `python scripts/merge_to_main.py <feat-branch> [--push]` # feature 브랜치를 main에 병합 (pull→rebase→`--no-ff`)
+- `python scripts/schedule_continuation.py [--reset-at HH:MM]` # 세션 한도 해제 시각에 작업 재시작 자동 예약
+
+### ⏰ 세션 연속 규칙
+대화가 길어져 세션 한도에 근접하면:
+1. **사용자에게 먼저 제안**한다: "세션 한도가 가까워졌습니다. 작업을 이어서 예약할까요?"
+2. 사용자가 동의하면 `/schedule-continuation` 스킬을 실행한다.
+3. 스킬이 지시하는 대로: `continuation_plan.md` 작성 → `schedule_continuation.py` 실행.
+4. **세션 ID와 리셋 시각은 스크립트가 자동으로 감지**한다. 추측하거나 수동 입력하지 마라.
 
 ### 🔀 main 병합 규칙 (CRITICAL)
 사용자가 feature 브랜치를 **main에 병합**해달라고 요청하면:

@@ -131,8 +131,10 @@ python -m pytest tests/  # 파이썬 문법/Import 체크
 ### E. 실행
 
 ```bash
-python3 scripts/execute.py {task-name}        # 순차 실행
-python3 scripts/execute.py {task-name} --push  # 실행 후 push
+python3 scripts/execute.py {task-name}                  # 순차 실행
+python3 scripts/execute.py {task-name} --push           # 실행 후 push
+python3 scripts/execute.py {task-name} --model opus     # 복잡한 phase: opus 사용
+python3 scripts/execute.py {task-name} --model haiku    # 단순한 phase: haiku 사용
 ```
 
 execute.py가 자동으로 처리하는 것:

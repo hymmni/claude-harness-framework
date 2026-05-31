@@ -45,12 +45,20 @@ references/      # 외부 오픈소스를 분석용으로 Clone (Read-only)
 ## 시작하기
 상세한 사용법 및 클로드와의 협업 워크플로우는 `docs/ROBOT_GUIDE.md`를 참고하십시오.
 
-## 스케줄러 (`scheduler.py`)
+## 스케줄러 (`scripts/scheduler.py`, `scripts/schedule_continuation.py`)
 
 원하는 시각에 Claude 세션을 자동 시작합니다. 학습 서버에 새벽 작업을 예약하거나 이어서 실행할 때 유용합니다.
 
-**방법 A — 스크립트 상단 CONFIG 수정 후 실행:**
+**세션 연속 예약 (권장) — 세션 한도에 근접했을 때:**
+```bash
+python3 scripts/schedule_continuation.py          # 세션 ID·리셋 시각 자동 감지
+python3 scripts/schedule_continuation.py --reset-at 22:05  # 시각 직접 지정
+```
+또는 Claude Code에서 `/schedule-continuation` 입력 — Claude가 중단 계획을 `continuation_plan.md`에 기록하고 예약까지 처리합니다.
+
+**임의 시각 예약 (`scripts/scheduler.py`):**
 ```python
+# CONFIG 수정 후 실행
 TARGET_TIME     = "07:00"   # 실행 시각 (24시간제)
 SESSION_ID      = "abc123"  # 비워두면 새 세션
 MODEL           = "opus"    # sonnet | opus | haiku  (비워두면 CC 설정값)
@@ -58,14 +66,8 @@ PERMISSION_MODE = "auto"    # auto | plan | acceptEdits | dontAsk  (비워두면
 PROMPT          = "작업 내용을 여기에..."
 ```
 ```bash
-python3 scheduler.py
+python3 scripts/scheduler.py
+python3 scripts/scheduler.py --time 07:00 --resume <session-id> --model opus --permission-mode auto --prompt "작업 내용"
 ```
 
-**방법 B — 커맨드라인 인자:**
-```bash
-python3 scheduler.py --time 07:00 --resume <session-id> --prompt "작업 내용"
-python3 scheduler.py --time 07:00 --resume <session-id> --model opus --permission-mode auto --prompt "작업 내용"
-python3 scheduler.py --time 23:30 --cmd "claude -p" --model sonnet --prompt "작업 내용"
-```
-
-세션 ID는 Claude Code에서 `/resume` 입력 시 확인할 수 있습니다. 스크립트를 켜둔 채로 두면 예약 시각에 자동 실행됩니다.
+스크립트를 켜둔 채로 두면 예약 시각에 자동 실행됩니다.
