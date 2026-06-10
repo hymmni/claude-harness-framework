@@ -40,7 +40,7 @@
 - 작업을 완료할 때마다 `experiments/`에 수정 사항 요약을 작성하십시오.
 
 ## 🤖 모델 선택 가이드
-작업 복잡도에 따라 적절한 모델을 사용자에게 제안하라. 클로드는 실행 중인 세션의 모델을 변경할 수 없으므로, 모델 선택은 **세션 시작 전** 또는 **execute.py 실행 시** 이루어진다.
+작업 복잡도에 따라 적절한 모델을 사용자에게 제안하라. 클로드는 실행 중인 세션의 모델을 변경할 수 없으므로, 인터랙티브 세션의 모델 선택은 **세션 시작 전**에 이루어진다. execute.py 실행 시에는 phase 기본값(`--model`) 또는 **step별 세분화** 둘 다 가능하다.
 
 | 모델 | 적합한 작업 |
 |---|---|
@@ -48,23 +48,46 @@
 | **sonnet** | 일반 코딩, 리팩토링, 대부분의 day-to-day 작업 (기본값) |
 | **haiku** | 단순 수정, 문서 작성, 빠른 조회성 작업 |
 
-execute.py로 step을 실행할 때 모델 지정:
+execute.py는 step별 `model` 필드 → phase 기본값(`--model`) → sonnet 순으로 모델을 결정한다:
 ```bash
-python3 scripts/execute.py <phase_dir> --model opus   # 복잡한 phase
-python3 scripts/execute.py <phase_dir> --model haiku  # 단순한 phase
+python3 scripts/execute.py <phase_dir> --model sonnet  # phase 기본값 지정
+```
+```json
+// phases/<phase>/index.json — step별로 다른 모델 지정 가능
+{ "step": 1, "name": "design", "model": "opus",   ... }
+{ "step": 2, "name": "implement", "model": "sonnet", ... }
+{ "step": 3, "name": "update-docs", "model": "haiku",  ... }
 ```
 
 ## 🛠️ 유틸리티 명령어
 - `python scripts/execute.py <phase_dir> [--model MODEL]` # 클로드의 자가 교정 실행 (하네스 내부용)
 - `python scripts/merge_to_main.py <feat-branch> [--push]` # feature 브랜치를 main에 병합 (pull→rebase→`--no-ff`)
-- `python scripts/schedule_continuation.py [--reset-at HH:MM]` # 세션 한도 해제 시각에 작업 재시작 자동 예약
+- `python scripts/schedule_continuation.py [--in 2h30m | --reset-at HH:MM]` # 세션 재시작 예약 (인자 없으면 /usage로 리셋 시각 자동 조회)
 
 ### ⏰ 세션 연속 규칙
-대화가 길어져 세션 한도에 근접하면:
-1. **사용자에게 먼저 제안**한다: "세션 한도가 가까워졌습니다. 작업을 이어서 예약할까요?"
-2. 사용자가 동의하면 `/schedule-continuation` 스킬을 실행한다.
-3. 스킬이 지시하는 대로: `continuation_plan.md` 작성 → `schedule_continuation.py` 실행.
-4. **세션 ID와 리셋 시각은 스크립트가 자동으로 감지**한다. 추측하거나 수동 입력하지 마라.
+**리셋 시각은 `/usage`로 공식 조회한다 — 추측하지 않는다.** `schedule_continuation.py`는 시각 인자가 없으면 `claude -p "/usage"`를 실행해 **실제 세션 리셋 시각**을 읽어 그대로 예약한다(추정 아님). 토큰 잔량%도 같이 나온다. 사용자가 다른 시각을 원하면 `--in`/`--reset-at`으로 덮어쓴다.
+
+#### 1. 큰 작업 시작 전 — 승인과 함께 예약 여부를 묻는다
+`execute.py` 실행 등 **여러 step짜리 큰 작업을 시작하기 직전**, 평소 승인을 받던 그 타이밍에 다음을 함께 안내·선택받는다 (`AskUserQuestion` 사용):
+1. 이 작업의 **대략적 토큰 소모량**을 규모감(작음/보통/큼)으로 알린다. 필요하면 `claude -p "/usage"`로 현재 사용률%를 조회해 근거로 제시한다.
+2. 사용자에게 두 선택지를 제시한다:
+   - **그냥 실행** — 바로 작업을 시작한다.
+   - **자동 예약도 함께** — 한도에 걸려 끊길 때 세션 리셋 시각에 이어지도록 미리 예약해 둔다.
+3. "자동 예약" 선택 시 `continuation_plan.md`를 작성한 뒤 아래 명령으로 예약한다(시각 인자 없이 실행하면 `/usage`의 리셋 시각으로 자동 예약).
+
+#### 2. 작업 중/언제든 — 사용자가 예약을 지시하면
+사용자가 "이어서 예약 걸어줘" / "N시간 M분 후에 예약" 처럼 말하면 클로드가 스스로 처리한다:
+1. `continuation_plan.md`에 진행 상황과 다음에 할 일을 기록한다.
+2. **모델**은 이어서 할 작업의 복잡도로 정한다 (모델 선택 가이드: 설계=opus / 일반=sonnet / 단순=haiku).
+3. 예약한다 (세션ID·권한모드는 스크립트가 처리, 권한모드는 best-effort 감지 후 실패 시 CC 기본값):
+   ```bash
+   python3 scripts/schedule_continuation.py --model sonnet                  # /usage 리셋 시각 자동 조회
+   python3 scripts/schedule_continuation.py --in 2h30m --model sonnet       # 사용자가 시각을 줬을 때 (상대)
+   python3 scripts/schedule_continuation.py --reset-at 14:30 --model sonnet  # 사용자가 시각을 줬을 때 (절대)
+   ```
+4. 터미널에 카운트다운이 뜬다. 시간을 바꾸려면 Ctrl+C 후 다른 `--in`/`--reset-at`으로 재실행한다.
+
+**스킬 경유 (대안)** — `/schedule-continuation` 스킬을 써도 된다.
 
 ### 🔀 main 병합 규칙 (CRITICAL)
 사용자가 feature 브랜치를 **main에 병합**해달라고 요청하면:

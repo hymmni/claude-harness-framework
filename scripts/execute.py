@@ -9,7 +9,6 @@ Usage:
 import argparse
 import contextlib
 import json
-import os
 import subprocess
 import sys
 import threading
@@ -63,6 +62,9 @@ class StepExecutor:
     GUARDRAIL_DOCS = ("ARCHITECTURE.md", "ADR.md")
     TZ = timezone(timedelta(hours=9))
 
+    # step 모델별 기본 소요 시간 (기록 없을 때 ETA 추정용, 단위: 초)
+    MODEL_DEFAULT_SECS = {"haiku": 90, "sonnet": 300, "opus": 600}
+
     def __init__(self, phase_dir_name: str, *, auto_push: bool = False, model: str = ""):
         self._root = str(ROOT)
         self._phases_dir = ROOT / "phases"
@@ -71,6 +73,7 @@ class StepExecutor:
         self._top_index_file = self._phases_dir / "index.json"
         self._auto_push = auto_push
         self._model = model
+        self._step_times: list[float] = []  # 완료된 step 소요 시간 (초)
 
         if not self._phase_dir.is_dir():
             print(f"ERROR: {self._phase_dir} not found")
@@ -295,8 +298,9 @@ class StepExecutor:
         
         try:
             cmd = ["claude", "-p", "--dangerously-skip-permissions", "--output-format", "json"]
-            if self._model:
-                cmd += ["--model", self._model]
+            step_model = step.get("model") or self._model  # step별 모델 우선, 없으면 phase 기본값
+            if step_model:
+                cmd += ["--model", step_model]
             cmd.append(prompt)
             result = subprocess.run(
                 cmd,
@@ -388,7 +392,7 @@ class StepExecutor:
 
             with progress_indicator(tag) as pi:
                 self._invoke_claude(step, preamble)
-                elapsed = int(pi.elapsed)
+            elapsed = int(pi.elapsed)  # finally 블록 완료 후 캡처
 
             index = self._read_json(self._index_file)
             status = next((s.get("status", "pending") for s in index["steps"] if s["step"] == step_num), "pending")
@@ -400,6 +404,7 @@ class StepExecutor:
                         s["completed_at"] = ts
                 self._write_json(self._index_file, index)
                 self._commit_step(step_num, step_name, step_start_sha)
+                self._step_times.append(pi.elapsed)
                 print(f"  ✓ Step {step_num}: {step_name} [{elapsed}s]")
                 return True
 
@@ -442,6 +447,22 @@ class StepExecutor:
 
         return False  # unreachable
 
+    def _print_step_eta(self, remaining: int):
+        """현재 시각과 phase 예상 완료 시각을 출력한다."""
+        now = datetime.now(self.TZ)
+        now_str = now.strftime("%H:%M")
+        if self._step_times:
+            avg_secs = sum(self._step_times) / len(self._step_times)
+            source = f"평균 {int(avg_secs / 60)}분/스텝"
+        else:
+            avg_secs = float(self.MODEL_DEFAULT_SECS.get(self._model or "sonnet", 300))
+            source = f"추정 {int(avg_secs / 60)}분/스텝"
+        total_secs = avg_secs * remaining
+        eta = now + timedelta(seconds=total_secs)
+        eta_str = eta.strftime("%H:%M")
+        mins = max(1, round(total_secs / 60))
+        print(f"  현재 {now_str} | 예상 완료 {eta_str} (~{mins}분, 나머지 {remaining}스텝 × {source})")
+
     def _execute_all_steps(self, guardrails: str):
         while True:
             index = self._read_json(self._index_file)
@@ -449,6 +470,9 @@ class StepExecutor:
             if pending is None:
                 print("\n  All steps completed!")
                 return
+
+            remaining = sum(1 for s in index["steps"] if s["status"] == "pending")
+            self._print_step_eta(remaining)
 
             step_num = pending["step"]
             for s in index["steps"]:
@@ -489,7 +513,7 @@ def main():
     parser = argparse.ArgumentParser(description="Harness Step Executor")
     parser.add_argument("phase_dir", help="Phase directory name (e.g. 0-mvp)")
     parser.add_argument("--push", action="store_true", help="Push branch after completion")
-    parser.add_argument("--model", default="", help="Model for Claude (sonnet | opus | haiku)")
+    parser.add_argument("--model", default="", help="Phase 기본 모델 (sonnet | opus | haiku); step별 model 필드가 우선")
     args = parser.parse_args()
 
     StepExecutor(args.phase_dir, auto_push=args.push, model=args.model).run()

@@ -14,6 +14,7 @@
 
 import argparse
 import datetime
+import re
 import shlex
 import subprocess
 import sys
@@ -41,7 +42,9 @@ PROMPT = """여기에 프롬프트를 입력하세요."""
 
 def parse_args():
     p = argparse.ArgumentParser(description="예약 시간에 Claude를 실행한다.")
-    p.add_argument("--time", metavar="HH:MM", help="실행 시각 (24시간제)")
+    p.add_argument("--time", metavar="HH:MM", help="실행 시각 (24시간제, 절대시간)")
+    p.add_argument("--in", dest="in_after", metavar="DURATION",
+                   help="지금부터 상대시간 (예: 2h30m, 90m, 45m). --time 대신 사용")
     p.add_argument("--resume", metavar="SESSION_ID", help="이어서 실행할 세션 ID")
     p.add_argument("--cmd", metavar="COMMAND", help="실행할 CLI 명령어 (--resume 대신)")
     p.add_argument("--model", metavar="MODEL",
@@ -64,15 +67,19 @@ def next_target(time_str: str) -> datetime.datetime:
     return candidate
 
 
-def fmt_delta(delta: datetime.timedelta) -> str:
-    total = int(delta.total_seconds())
-    h, rem = divmod(total, 3600)
-    m, s = divmod(rem, 60)
-    if h:
-        return f"{h}시간 {m}분 후"
-    if m:
-        return f"{m}분 {s}초 후"
-    return f"{s}초 후"
+def parse_duration(text: str) -> datetime.timedelta:
+    """'2h30m', '90m', '45m', '1h' 형식의 상대시간을 timedelta로 변환한다."""
+    m = re.fullmatch(r"\s*(?:(\d+)\s*h)?\s*(?:(\d+)\s*m)?\s*", text, re.IGNORECASE)
+    if not m or (m.group(1) is None and m.group(2) is None):
+        raise ValueError(f"잘못된 시간 형식: '{text}' (예: 2h30m, 90m, 1h)")
+    hours = int(m.group(1) or 0)
+    mins = int(m.group(2) or 0)
+    return datetime.timedelta(hours=hours, minutes=mins)
+
+
+def target_after(text: str) -> datetime.datetime:
+    """지금부터 DURATION 만큼 뒤의 datetime을 반환한다."""
+    return datetime.datetime.now() + parse_duration(text)
 
 
 def run(command: str, prompt: str):
@@ -109,26 +116,50 @@ def main():
     if permission_mode:
         command += f" --permission-mode {permission_mode}"
 
-    target = next_target(time_str)
-    print(f"  예약: {target.strftime('%Y-%m-%d %H:%M')}  ({fmt_delta(target - datetime.datetime.now())})")
-    print(f"  명령: {command}")
-    print(f"  프롬프트: {prompt[:60].strip()}{'...' if len(prompt) > 60 else ''}")
-    print("  (Ctrl+C 로 취소)\n")
+    # ANSI 색상
+    C  = "\033[96m"   # cyan   — 라벨
+    W  = "\033[97m"   # white  — 값
+    Y  = "\033[93m"   # yellow — 카운트다운
+    G  = "\033[92m"   # green  — 예약 라벨
+    D  = "\033[2m"    # dim    — 보조 텍스트
+    B  = "\033[1m"    # bold
+    R  = "\033[0m"    # reset
+
+    # --in(상대시간)이 주어지면 우선, 아니면 --time(절대시간) 사용
+    if cli.in_after:
+        try:
+            target = target_after(cli.in_after)
+        except ValueError as e:
+            print(f"  ERROR: {e}")
+            sys.exit(1)
+    else:
+        target = next_target(time_str)
+    print(f"  {C}{B}명령:{R}     {W}{command}{R}")
+    print(f"  {C}{B}프롬프트:{R} {W}{prompt[:60].strip()}{'...' if len(prompt) > 60 else ''}{R}")
+    print(f"  {D}(Ctrl+C 로 취소){R}")
+    print()
 
     try:
         while True:
             now = datetime.datetime.now()
             remaining = target - now
             if remaining.total_seconds() <= 0:
+                sys.stdout.write("\n")
                 break
-            if int(remaining.total_seconds()) % 300 == 0:  # 5분마다 갱신
-                print(f"  대기 중... {fmt_delta(remaining)}", flush=True)
-            time.sleep(10)
+            total_secs = int(remaining.total_seconds())
+            h, rem = divmod(total_secs, 3600)
+            m, s = divmod(rem, 60)
+            sys.stdout.write(
+                f"\r  {G}{B}예약:{R} {W}{target.strftime('%Y-%m-%d %H:%M')}{R}"
+                f"  {Y}({h:02d}:{m:02d}:{s:02d} 남음){R}"
+            )
+            sys.stdout.flush()
+            time.sleep(1)
     except KeyboardInterrupt:
-        print("\n  취소됨.")
+        sys.stdout.write(f"\n  {D}취소됨.{R}\n")
         sys.exit(0)
 
-    print(f"\n  [{datetime.datetime.now().strftime('%H:%M:%S')}] 실행합니다...")
+    print(f"\n  {G}{B}[{datetime.datetime.now().strftime('%H:%M:%S')}] 실행합니다...{R}")
     code = run(command, prompt)
     if code == 0:
         print("\n  완료.")

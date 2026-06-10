@@ -130,6 +130,8 @@ python -m pytest tests/  # 파이썬 문법/Import 체크
 
 ### E. 실행
 
+> **실행 직전, 예약 여부를 함께 묻는다.** execute.py는 여러 step짜리 큰 작업이라 한 세션을 상당히 소모할 수 있다. 사용자에게 승인을 받는 그 타이밍에 이 작업의 **대략적 토큰 소모 규모**(작음/보통/큼)를 알리고, **"그냥 실행" vs "자동 예약도 함께"** 를 선택받는다 (`AskUserQuestion`). "자동 예약" 선택 시 `continuation_plan.md`를 작성한 뒤 `scripts/schedule_continuation.py`로 예약한다 (인자 없이 실행하면 `/usage`의 공식 세션 리셋 시각으로 자동 예약; 사용자가 다른 시각을 주면 `--in`/`--reset-at`). 자세한 규칙은 CLAUDE.md의 `⏰ 세션 연속 규칙` 참조.
+
 ```bash
 python3 scripts/execute.py {task-name}                  # 순차 실행
 python3 scripts/execute.py {task-name} --push           # 실행 후 push

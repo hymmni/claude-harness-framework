@@ -50,11 +50,14 @@ references/      # 외부 오픈소스를 분석용으로 Clone (Read-only)
 원하는 시각에 Claude 세션을 자동 시작합니다. 학습 서버에 새벽 작업을 예약하거나 이어서 실행할 때 유용합니다.
 
 **세션 연속 예약 (권장) — 세션 한도에 근접했을 때:**
+
+인자 없이 실행하면 `claude -p "/usage"`로 **공식 세션 리셋 시각을 조회**해 그 시각에 예약합니다(추정 아님). 다른 시각을 원하면 `--in`/`--reset-at`으로 덮어씁니다. 세션 ID·권한 모드는 스크립트가 자동 처리합니다.
 ```bash
-python3 scripts/schedule_continuation.py          # 세션 ID·리셋 시각 자동 감지
-python3 scripts/schedule_continuation.py --reset-at 22:05  # 시각 직접 지정
+python3 scripts/schedule_continuation.py                    # /usage 리셋 시각 자동 조회 후 예약
+python3 scripts/schedule_continuation.py --in 2h30m         # 상대시간 (지금부터)
+python3 scripts/schedule_continuation.py --reset-at 22:05   # 절대시각
 ```
-또는 Claude Code에서 `/schedule-continuation` 입력 — Claude가 중단 계획을 `continuation_plan.md`에 기록하고 예약까지 처리합니다.
+또는 Claude Code에서 `/schedule-continuation` 입력 — Claude가 리셋 시각을 조회하고, 중단 계획을 `continuation_plan.md`에 기록하고 예약까지 처리합니다.
 
 **임의 시각 예약 (`scripts/scheduler.py`):**
 ```python
@@ -66,8 +69,8 @@ PERMISSION_MODE = "auto"    # auto | plan | acceptEdits | dontAsk  (비워두면
 PROMPT          = "작업 내용을 여기에..."
 ```
 ```bash
-python3 scripts/scheduler.py
-python3 scripts/scheduler.py --time 07:00 --resume <session-id> --model opus --permission-mode auto --prompt "작업 내용"
+python3 scripts/scheduler.py --in 2h30m --resume <session-id> --prompt "작업 내용"          # 상대시간
+python3 scripts/scheduler.py --time 07:00 --resume <session-id> --model opus --permission-mode auto --prompt "작업 내용"  # 절대시각
 ```
 
 스크립트를 켜둔 채로 두면 예약 시각에 자동 실행됩니다.
