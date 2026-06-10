@@ -45,13 +45,22 @@ references/      # 외부 오픈소스를 분석용으로 Clone (Read-only)
 ## 시작하기
 상세한 사용법 및 클로드와의 협업 워크플로우는 `docs/ROBOT_GUIDE.md`를 참고하십시오.
 
-## 스케줄러 (`scripts/scheduler.py`, `scripts/schedule_continuation.py`)
+## 세션 리밋 이어가기
 
-원하는 시각에 Claude 세션을 자동 시작합니다. 학습 서버에 새벽 작업을 예약하거나 이어서 실행할 때 유용합니다.
+세션 리밋(5시간)에 걸려도 작업이 끊기지 않게 하는 두 가지 방법이 있습니다.
 
-**세션 연속 예약 (권장) — 세션 한도에 근접했을 때:**
+### tmux 자동 재개 (`scripts/tmux_autoresume.py`) — 권장
 
-인자 없이 실행하면 `claude -p "/usage"`로 **공식 세션 리셋 시각을 조회**해 그 시각에 예약합니다(추정 아님). 다른 시각을 원하면 `--in`/`--reset-at`으로 덮어씁니다. 세션 ID·권한 모드는 스크립트가 자동 처리합니다.
+claude를 tmux 안에서 띄우고, 감시 창이 화면을 폴링하다 리밋을 감지하면 **리셋 시각에 같은 세션에 `continue`를 자동 입력**합니다. 새 프로세스로 resume하는 게 아니라 살아있는 세션에 키를 넣는 방식이라 **대화가 갈라지지 않고**, 터미널을 닫아도 tmux라 생존합니다. 한 번 띄워두면 그 뒤는 무인으로 이어집니다.
+```bash
+sudo apt install -y tmux                       # 최초 1회
+python3 scripts/tmux_autoresume.py             # 세션 띄우고 claude+감시기 시작 → attach
+# 분리: Ctrl+b d   재접속: tmux attach -t claude-harness   창 전환: Ctrl+b 0/1
+```
+
+### 시각 예약 (`scripts/schedule_continuation.py`) — 보조
+
+특정 시각에 **새 세션을 예약**합니다. 인자 없이 실행하면 `claude -p "/usage"`로 **공식 리셋 시각을 조회**해 그 시각에 예약합니다(추정 아님). 다른 시각은 `--in`/`--reset-at`으로 덮어씁니다. 세션 ID·권한 모드는 자동 처리됩니다.
 ```bash
 python3 scripts/schedule_continuation.py                    # /usage 리셋 시각 자동 조회 후 예약
 python3 scripts/schedule_continuation.py --in 2h30m         # 상대시간 (지금부터)

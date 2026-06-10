@@ -62,10 +62,22 @@ python3 scripts/execute.py <phase_dir> --model sonnet  # phase 기본값 지정
 ## 🛠️ 유틸리티 명령어
 - `python scripts/execute.py <phase_dir> [--model MODEL]` # 클로드의 자가 교정 실행 (하네스 내부용)
 - `python scripts/merge_to_main.py <feat-branch> [--push]` # feature 브랜치를 main에 병합 (pull→rebase→`--no-ff`)
-- `python scripts/schedule_continuation.py [--in 2h30m | --reset-at HH:MM]` # 세션 재시작 예약 (인자 없으면 /usage로 리셋 시각 자동 조회)
+- `python scripts/tmux_autoresume.py [--session NAME]` # tmux 안에서 claude 실행 → 리밋 시 리셋 후 자동 "continue" (권장)
+- `python scripts/schedule_continuation.py [--in 2h30m | --reset-at HH:MM]` # 특정 시각에 새 세션 예약 (인자 없으면 /usage로 리셋 시각 조회)
 
 ### ⏰ 세션 연속 규칙
-**리셋 시각은 `/usage`로 공식 조회한다 — 추측하지 않는다.** `schedule_continuation.py`는 시각 인자가 없으면 `claude -p "/usage"`를 실행해 **실제 세션 리셋 시각**을 읽어 그대로 예약한다(추정 아님). 토큰 잔량%도 같이 나온다. 사용자가 다른 시각을 원하면 `--in`/`--reset-at`으로 덮어쓴다.
+세션 리밋을 넘겨 작업을 이어가는 방법은 두 가지다. **같은 세션을 이어가려면 ① tmux 방식이 권장**된다.
+
+#### ⓪ tmux 자동 재개 (권장 — 같은 세션, fork 없음)
+`tmux_autoresume.py`는 claude를 tmux 안에서 띄우고, 감시 창이 화면을 폴링하다 리밋을 감지하면 **리셋 시각에 같은 세션에 `send-keys "continue"`**를 보낸다. 새 프로세스 resume이 아니라 살아있는 세션에 입력을 꽂는 것이라 **대화가 갈라지지(fork) 않고**, 터미널을 닫아도 tmux라 생존한다.
+```bash
+python3 scripts/tmux_autoresume.py            # tmux 세션 띄우고 claude+감시기 시작, attach
+```
+- 사용자가 처음에 이걸로 시작해 두면, 그 뒤 리밋이 와도 자동으로 이어진다 (무인).
+- 단점: tmux 필요(`sudo apt install tmux`), 리밋 배너 문구가 버전마다 다를 수 있어 감지 정규식 조정이 필요할 수 있다.
+
+#### 아래는 "특정 시각에 새 세션을 예약"하는 보조 경로 (`schedule_continuation.py`)
+**리셋 시각은 `/usage`로 공식 조회한다 — 추측하지 않는다.** 시각 인자가 없으면 `claude -p "/usage"`를 실행해 **실제 세션 리셋 시각**을 읽어 그대로 예약한다(추정 아님). 토큰 잔량%도 같이 나온다. 사용자가 다른 시각을 원하면 `--in`/`--reset-at`으로 덮어쓴다. (이 경로는 `--resume`이라 살아있는 세션에 동시에 걸면 fork 위험이 있으니, 원래 세션이 리밋으로 멈춘 뒤 이어받는 용도다.)
 
 #### 1. 큰 작업 시작 전 — 승인과 함께 예약 여부를 묻는다
 `execute.py` 실행 등 **여러 step짜리 큰 작업을 시작하기 직전**, 평소 승인을 받던 그 타이밍에 다음을 함께 안내·선택받는다 (`AskUserQuestion` 사용):
