@@ -53,7 +53,6 @@ def parse_args():
                    choices=["auto", "plan", "acceptEdits", "dontAsk"],
                    help="권한 모드 (auto=자동승인 | plan=계획만 | acceptEdits=편집승인 | dontAsk=전체승인)")
     p.add_argument("--prompt", metavar="TEXT", help="세션에 전달할 프롬프트")
-    p.add_argument("--yes", action="store_true", help="대기 확인 없이 즉시 예약 (schedule_continuation.py 내부 호출용)")
     return p.parse_args()
 
 

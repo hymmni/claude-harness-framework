@@ -29,7 +29,10 @@ from pathlib import Path
 CLONE_ROOT = Path(__file__).resolve().parent   # 클론된 템플릿 루트 (= harness/)
 TARGET_ROOT = CLONE_ROOT.parent                # 적용 대상 프로젝트 루트
 
-# --- .gitignore 블록 (단일 출처). 이 레포의 .gitignore 도 --print-gitignore 출력으로 생성된다. ---
+# --- .gitignore 블록 (대상 프로젝트 전용). 설치 시 대상의 .gitignore 에 append 되어
+#     harness 도구가 그 프로젝트 이력을 오염시키지 않게 한다.
+#     주의: 이 블록은 '대상 프로젝트용'이다. 이 템플릿 레포 자신의 .gitignore 와는 별개이며
+#     (템플릿 레포는 scripts/ docs/ 등 harness 소스를 추적해야 하므로), 둘을 동일시하지 마라. ---
 GITIGNORE_BEGIN = "# >>> harness gitignore (managed) >>>"
 GITIGNORE_END = "# <<< harness gitignore (managed) <<<"
 GITIGNORE_BLOCK = """\

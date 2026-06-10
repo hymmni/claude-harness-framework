@@ -58,28 +58,12 @@ python3 scripts/tmux_autoresume.py             # 세션 띄우고 claude+감시�
 # 분리: Ctrl+b d   재접속: tmux attach -t claude-harness   창 전환: Ctrl+b 0/1
 ```
 
-### 시각 예약 (`scripts/schedule_continuation.py`) — 보조
+### 시각 예약 (`scripts/scheduler.py`) — 보조
 
-특정 시각에 **새 세션을 예약**합니다. 인자 없이 실행하면 `claude -p "/usage"`로 **공식 리셋 시각을 조회**해 그 시각에 예약합니다(추정 아님). 다른 시각은 `--in`/`--reset-at`으로 덮어씁니다. 세션 ID·권한 모드는 자동 처리됩니다.
+특정 시각에 **세션을 시작/재개**하거나 임의 명령을 실행합니다. 외부 터미널에서 켜두면 예약 시각에 카운트다운 후 실행됩니다. (execute.py가 리밋으로 끊긴 경우 재실행 예약 등에 유용 — execute.py는 재진입 가능하므로 다시 돌리면 이어집니다.)
 ```bash
-python3 scripts/schedule_continuation.py                    # /usage 리셋 시각 자동 조회 후 예약
-python3 scripts/schedule_continuation.py --in 2h30m         # 상대시간 (지금부터)
-python3 scripts/schedule_continuation.py --reset-at 22:05   # 절대시각
+python3 scripts/scheduler.py --time 07:00 --prompt "작업 내용"                       # 새 세션을 07:00에 시작
+python3 scripts/scheduler.py --in 2h30m --resume <session-id> --prompt "이어서..."   # 2시간 30분 뒤 특정 세션 재개
+python3 scripts/scheduler.py --time 09:00 --cmd "python3 scripts/execute.py 0-mvp"   # 09:00에 phase 재실행
 ```
-또는 Claude Code에서 `/schedule-continuation` 입력 — Claude가 리셋 시각을 조회하고, 중단 계획을 `continuation_plan.md`에 기록하고 예약까지 처리합니다.
-
-**임의 시각 예약 (`scripts/scheduler.py`):**
-```python
-# CONFIG 수정 후 실행
-TARGET_TIME     = "07:00"   # 실행 시각 (24시간제)
-SESSION_ID      = "abc123"  # 비워두면 새 세션
-MODEL           = "opus"    # sonnet | opus | haiku  (비워두면 CC 설정값)
-PERMISSION_MODE = "auto"    # auto | plan | acceptEdits | dontAsk  (비워두면 CC 설정값)
-PROMPT          = "작업 내용을 여기에..."
-```
-```bash
-python3 scripts/scheduler.py --in 2h30m --resume <session-id> --prompt "작업 내용"          # 상대시간
-python3 scripts/scheduler.py --time 07:00 --resume <session-id> --model opus --permission-mode auto --prompt "작업 내용"  # 절대시각
-```
-
-스크립트를 켜둔 채로 두면 예약 시각에 자동 실행됩니다.
+리셋 시각이 필요하면 `claude -p "/usage"`로 공식값을 확인하세요(`--time`에 사용). CONFIG 섹션(`scheduler.py` 상단)을 직접 편집해 인자 없이 실행할 수도 있습니다.
