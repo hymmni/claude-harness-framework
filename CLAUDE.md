@@ -36,7 +36,14 @@
 
 ## 📝 개발 프로세스
 - **Phase Execution**: `scripts/execute.py`를 사용하여 복잡한 리팩토링이나 구현 단계를 안전하게 수행하십시오.
-- **Commit Message**: Scoped Conventional Commits 사용. **커밋 메시지(제목·본문)는 영어로 작성**한다. 괄호 안에 수정된 모듈 영역(`policy`, `env`, `data`, `config`, `harness` 등 베이스라인 이름이나 모듈)을 명시하고, **반드시 본문에 멀티라인(여러 줄) 상세 설명을 추가**하십시오. (예: `feat(policy): short description` + 본문 상세)
+- **Commit Message**: Scoped Conventional Commits 사용. **커밋 메시지(제목·본문)는 영어로 작성**한다. 괄호 안에 수정된 모듈 영역(`policy`, `env`, `data`, `config`, `harness` 등 베이스라인 이름이나 모듈)을 명시하고, **제목은 명사형이 아닌 서술형(동사 중심 문장)으로** 작성하며, **반드시 본문에 글머리기호(`-`)를 사용한 멀티라인 상세 설명을 추가**하라. 예시:
+  ```
+  feat(policy): add diffusion head to transformer backbone
+
+  - replace MLP decoder with DDPM noise predictor to match paper Sec 3.2
+  - expose num_diffusion_steps as Hydra config key (default 100)
+  - update forward() signature: obs_seq → (action_pred, noise_pred)
+  ```
 - 작업을 완료할 때마다 `experiments/`에 수정 사항 요약을 작성하십시오.
 
 ## 🤖 모델 선택 가이드

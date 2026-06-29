@@ -272,10 +272,11 @@ class StepExecutor:
             f"   - AC 통과 → \"completed\" + \"summary\" 필드에 이 step의 산출물을 한 줄로 요약\n"
             f"   - {self.MAX_RETRIES}회 수정 시도 후에도 실패 → \"error\" + \"error_message\" 기록\n"
             f"   - 사용자 개입이 필요한 경우 (API 키, 인증, 수동 설정 등) → \"blocked\" + \"blocked_reason\" 기록 후 즉시 중단\n"
-            f"6. 모든 변경사항을 커밋하라 (반드시 CLAUDE.md의 Scoped 커밋 규칙과 멀티라인 본문 지침을 따를 것).\n"
+            f"6. 모든 변경사항을 커밋하라. **중간 커밋은 반드시 CLAUDE.md의 Scoped 커밋 규칙을 따른다**:\n"
+            f"   - 제목: 서술형(동사 중심) 문장. 명사형 금지. 예: `feat(policy): add noise predictor head`\n"
+            f"   - 본문: 글머리기호(`-`)로 변경 이유와 내용을 구체적으로 기술.\n"
             f"   step 진행 중 여러 번 커밋해도 좋다 — 하네스가 step 종료 시 이 커밋들을\n"
-            f"   하나로 압축(squash)하고, 원본 커밋 제목들을 압축 커밋 본문에 요약해 남긴다.\n"
-            f"   따라서 각 중간 커밋 제목을 의미 있게 작성하라. 압축 커밋 예시: {commit_example}\n\n"
+            f"   하나로 squash한다. 압축 커밋 제목은 하네스가 자동 생성: `{commit_example}`\n\n"
             f"---\n\n"
         )
 
