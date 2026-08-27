@@ -31,16 +31,17 @@ git clone https://github.com/hymmni/claude-harness-framework.git my-project && c
 ### 적용 후 구성
 
 ```
-CLAUDE.md        # 프로젝트 규칙 및 로봇 연구 프로토콜
-.claude/         # 클로드 설정 및 커맨드 (harness, review)
-docs/            # 아키텍처 가이드 (ARCHITECTURE, ADR, ROBOT_GUIDE)
-scripts/         # 하네스 실행기 (execute.py, merge_to_main.py)
-experiments/     # 실험 결과 기록 (LOG_TEMPLATE 활용)
-references/      # 외부 오픈소스를 분석용으로 Clone (Read-only)
+CLAUDE.md        # 프로젝트 규칙 및 로봇 연구 프로토콜 (git 추적)
+.claude/         # 클로드 설정 및 커맨드 (harness, review) — git 미추적
+docs/            # 아키텍처 가이드 (ARCHITECTURE, ADR, ROBOT_GUIDE) — git 추적
+  private/       #   PC/GPU 등 로컬 인프라 정보 (ENVIRONMENT.md) — git 미추적
+scripts/         # 하네스 실행기 (execute.py, merge_to_main.py) — git 미추적
+experiments/     # 실험 결과 기록 (LOG_TEMPLATE 활용) — git 미추적
+references/      # 외부 오픈소스를 분석용으로 Clone (Read-only) — git 미추적
 .gitignore       # harness 산출물 제외 규칙
 ```
 
-하네스 파일과 작업 코드는 동일한 레포지토리의 `.git` 이력으로 함께 관리됩니다. 워크플로우 실행 시 `phases/` 디렉토리가 생성되어 step 정의와 실행 기록을 담습니다.
+`CLAUDE.md`와 `docs/`(단 `docs/private/` 제외)는 작업 코드와 함께 git 이력으로 관리되고, 나머지 하네스 파일(`.claude/`, `scripts/`, `experiments/`, `references/`, `docs/private/`)은 로컬 전용입니다 — 대상 프로젝트가 public 레포일 수 있어, 인프라 정보나 도구 자체는 굳이 공개하지 않도록 설계했습니다. 워크플로우 실행 시 `phases/` 디렉토리가 생성되어 step 정의와 실행 기록을 담습니다(역시 로컬 전용).
 
 ## 시작하기
 상세한 사용법 및 클로드와의 협업 워크플로우는 `docs/ROBOT_GUIDE.md`를 참고하십시오.

@@ -1,6 +1,6 @@
 # Robot Learning Architecture
 
-이 문서는 이 하네스를 적용한 로봇 행동 지능 연구 프로젝트의 표준 아키텍처 가이드라인을 담고 있습니다.
+**(placeholder — 실제 프로젝트 아키텍처로 교체할 것)** 아래는 diffusion policy 기반 로봇 학습 파이프라인의 예시 구조입니다. 하네스를 프로젝트에 처음 적용한 뒤, 이 프로젝트의 실제 데이터 흐름·핵심 컴포넌트·설정 관리 방식으로 각 절을 교체하세요.
 
 ## 1. 데이터 흐름 (Data Flow)
 ```mermaid
@@ -43,3 +43,6 @@ graph LR
 
 ## 3. 설정 관리 (Config Management)
 - **Hydra**를 사용하여 `task`, `algo`, `env` 설정을 모듈화하여 관리하는 것을 권장합니다.
+
+## 4. 실행 환경
+실제 하드웨어 구성(PC 대수, GPU 유무 등)은 `docs/private/ENVIRONMENT.md`(git 미추적, 로컬 전용)에 기록한다. 이 문서(`ARCHITECTURE.md`)는 이 하네스를 쓰는 프로젝트가 public 레포일 수 있으므로, 인프라 정보는 여기 두지 않는다. 구성과 무관하게, 디바이스 하드코딩 대신 CPU/GPU fallback(`device='cuda' if torch.cuda.is_available() else 'cpu'` 등)을 유지하면 안전하다.

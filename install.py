@@ -36,10 +36,9 @@ TARGET_ROOT = CLONE_ROOT.parent                # 적용 대상 프로젝트 루�
 GITIGNORE_BEGIN = "# >>> harness gitignore (managed) >>>"
 GITIGNORE_END = "# <<< harness gitignore (managed) <<<"
 GITIGNORE_BLOCK = """\
-CLAUDE.md
 CLAUDE.harness.md
 .claude/
-docs/
+docs/private/
 experiments/
 phases/
 references/

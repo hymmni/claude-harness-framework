@@ -5,7 +5,9 @@
 1. `README.md`를 읽고 프로젝트 구조와 적용 방법을 파악한다.
 2. 가상환경이 있는지 확인한다(`venv/`, `.venv/`, `conda` 환경 등). 있으면 해당 환경에서 작업한다.
    - conda: `conda activate <env>` / venv: `source venv/bin/activate`
-3. `continuation_plan.md`가 있으면 읽고 이전 세션의 중단 지점부터 이어서 시작한다.
+3. `docs/ARCHITECTURE.md`, `docs/ADR.md`, `docs/private/ENVIRONMENT.md`를 읽고 현재 구조·결정 이력·하드웨어 구성을 파악한다.
+4. `phases/index.json`에서 `status: "pending"`인 phase가 있는지 확인해 이어서 할 작업이 있는지 파악한다.
+5. `continuation_plan.md`가 있으면 읽고 이전 세션의 중단 지점부터 이어서 시작한다.
 
 ## 🧪 로봇 연구 프로토콜
 - **수정 범위 (Write Scope)**: 모든 소스 코드 수정은 이 작업 레포지토리 내부에서 수행합니다. (단, `references/`는 읽기 전용 — 아래 참조)
@@ -14,28 +16,14 @@
 - **출처 표기**: `references/`에서 코드를 가져올 경우 `# From: references/repo_name/file.py`와 같이 주석을 남기십시오.
 - **실험 기록**: 의미 있는 변화(알고리즘 교체, 핵심 파라미터 변경) 발생 시 `experiments/` 내에 기록을 남기십시오.
 
-## 🤖 기술 스택 (Robot Learning)
-- **Core**: Python, PyTorch (Device management: cuda/mps/cpu)
-- **Policy**: Diffusion Policy, Flow Matching, ACT, etc.
-- **Config**: Hydra (preferred), YAML
-- **Data**: Zarr, HDF5, Gym/Robosuite environments
-- **Experiment**: WandB, Tensorboard
+## 📐 아키텍처 & 기술 스택
+이 프로젝트의 스택·구조·결정 이력은 `docs/ARCHITECTURE.md`(현재 구조 스냅샷)와 `docs/ADR.md`(결정-이유-트레이드오프 로그)가 단일 진처다. 구조에 영향을 주는 작업 전에는 반드시 두 문서를 먼저 확인하라.
 
-## 🏗️ 아키텍처 가이드 (Robot Pipeline)
-1. **Dataset/Replay Buffer**: Data loading & normalization
-2. **Policy/Network**: Neural network architecture
-3. **Environment Wrapper**: State/Action space mapping & observation stacking
-4. **Trainer/Evaluator**: Training loops and simulation/real-world benchmarks
-
-## 🖥️ 하드웨어 환경 (3-PC Workflow)
-현재 프로젝트는 다음 3대의 환경을 오가며 개발됩니다. 코드를 설계할 때 이 환경의 제약을 반드시 고려하십시오.
-1. **코딩용 PC (Local)**: GPU 없음. 코드 작성, 리팩토링, Git 관리 수행. (이 하네스가 주로 실행되는 곳)
-2. **학습용 PC (Server)**: GPU 있음. 대용량 데이터 전처리 및 모델 학습 (WandB로 로깅).
-3. **추론용 PC (Robot)**: GPU 있음. 로봇과 연결하여 실제 모델 추론 및 배포.
-* **주의**: 코딩용 PC에는 GPU가 없으므로, 하네스 환경 내에서 코드를 테스트할 때는 CPU Fallback(`device='cuda' if torch.cuda.is_available() else 'cpu'`) 처리가 되어 있어야 합니다.
+CLAUDE.md 자체는 특정 기술 스택을 전제하지 않는다 — 실제 채택 스택(PyTorch/JAX 등), 파이프라인 구조는 프로젝트마다 다르므로 전부 `docs/ARCHITECTURE.md`·`docs/ADR.md`에서 확인하라. 하드웨어 환경(1대/여러 대 PC, GPU 유무, 디바이스 하드코딩 금지 등)은 `docs/private/ENVIRONMENT.md`(git 미추적, 로컬 전용 — 프로젝트 레포가 public일 수 있어 인프라 정보만 분리했다)에서 확인하라. 이 하네스를 새 프로젝트에 처음 적용할 때는 이 세 문서에 해당 프로젝트의 실제 스택·하드웨어를 채워 넣는다.
 
 ## 📝 개발 프로세스
-- **Phase Execution**: `scripts/execute.py`를 사용하여 복잡한 리팩토링이나 구현 단계를 안전하게 수행하십시오.
+- **기본 워크플로우 — 직접 세션 협업**: 새 설계나 구현 방향은 먼저 사용자와 논의해 확정한 뒤 진행한다. 작업 도중 설계 판단이 필요한 지점(접근 방식 선택, 시도가 실패했을 때의 다음 방향, 결과 해석)마다 먼저 확인받고, 사용자 모르게 재설계하지 않는다. 결과가 기대와 다르게 나오면 "안 됐다"로 뭉개지 말고, 무엇을 어떻게 시도했고 왜 그렇게 판단했는지 구체적으로 보고해 사용자가 직접 검증할 수 있게 한다.
+- **`scripts/execute.py` (보조 도구, 예외적 사용)**: 설계가 이미 사용자와 합의되어 여러 step으로 기계적으로 쪼갤 수 있는 작업에만 쓴다. 여러 step을 자동 자가교정으로 연속 실행하는 도구라 중간 설계 판단이 사용자 확인 없이 이뤄질 수 있다 — 쓸지 여부와 phase/step 설계 자체도 실행 전에 사용자와 먼저 논의한다. 상세 워크플로우는 `harness` 스킬(`.claude/commands/harness.md`) 참고.
 - **Commit Message**: Scoped Conventional Commits 사용. **커밋 메시지(제목·본문)는 영어로 작성**한다. 괄호 안에 수정된 모듈 영역(`policy`, `env`, `data`, `config`, `harness` 등 베이스라인 이름이나 모듈)을 명시하고, **제목은 명사형이 아닌 서술형(동사 중심 문장)으로** 작성하며, **반드시 본문에 글머리기호(`-`)를 사용한 멀티라인 상세 설명을 추가**하라. 예시:
   ```
   feat(policy): add diffusion head to transformer backbone
@@ -51,6 +39,7 @@
 
 | 모델 | 적합한 작업 |
 |---|---|
+| **fable** | 최고 난이도 — 복합 연구 설계, 장시간 자율 작업, 가장 까다로운 디버깅 |
 | **opus** | 신규 아키텍처 설계, 복잡한 알고리즘 구현, 다단계 추론이 필요한 phase |
 | **sonnet** | 일반 코딩, 리팩토링, 대부분의 day-to-day 작업 (기본값) |
 | **haiku** | 단순 수정, 문서 작성, 빠른 조회성 작업 |
