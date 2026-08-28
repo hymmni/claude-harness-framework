@@ -36,13 +36,13 @@ TARGET_ROOT = CLONE_ROOT.parent                # 적용 대상 프로젝트 루�
 GITIGNORE_BEGIN = "# >>> harness gitignore (managed) >>>"
 GITIGNORE_END = "# <<< harness gitignore (managed) <<<"
 GITIGNORE_BLOCK = """\
-CLAUDE.harness.md
-.claude/*
-!.claude/skills/
-docs/private/
-experiments/
-references/
-continuation_plan.md
+/CLAUDE.harness.md
+/.claude/*
+!/.claude/skills/
+/docs/private/
+/experiments/
+/references/
+/continuation_plan.md
 """
 
 # 어느 깊이에서든 복사하지 않을 잡파일 (git 메타, 캐시 등)
@@ -126,7 +126,7 @@ def run_install(assume_yes: bool) -> int:
     if claude_conflict:
         print("  ⚠ 기존 CLAUDE.md 발견 — harness 버전을 CLAUDE.harness.md 로 저장했습니다.")
         print("    두 파일을 수동 병합한 뒤 CLAUDE.harness.md 를 삭제하세요.")
-    print("  ✓ 완료. 이제 /harness 로 step 설계를 시작하세요.\n")
+    print("  ✓ 완료. 이제 /harness 로 플랜 작성을 시작하세요.\n")
     return 0
 
 
