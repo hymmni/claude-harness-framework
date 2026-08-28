@@ -41,7 +41,7 @@ references/      # 외부 오픈소스를 분석용으로 Clone (Read-only) — 
 .gitignore       # harness 산출물 제외 규칙
 ```
 
-`CLAUDE.md`와 `docs/`(단 `docs/private/` 제외)는 작업 코드와 함께 git 이력으로 관리되고, 나머지 하네스 파일(`.claude/`, `scripts/`, `experiments/`, `references/`, `docs/private/`)은 로컬 전용입니다 — 대상 프로젝트가 public 레포일 수 있어, 인프라 정보나 도구 자체는 굳이 공개하지 않도록 설계했습니다. 워크플로우 실행 시 `phases/` 디렉토리가 생성되어 step 정의와 실행 기록을 담습니다(역시 로컬 전용).
+`CLAUDE.md`, `docs/`(단 `docs/private/` 제외), `scripts/`, `.claude/skills/`는 작업 코드와 함께 git 이력으로 관리되고, 나머지 하네스 파일(`.claude/` 나머지, `experiments/`, `references/`, `docs/private/`)은 로컬 전용입니다 — 대상 프로젝트가 public 레포일 수 있어, 인프라 정보 자체는 굳이 공개하지 않도록 설계했습니다. 워크플로우 실행 시 `docs/superpowers/plans/`에 플랜(`.md`)과 자동 생성되는 상태 파일(`.state.json`)이 쌓입니다.
 
 ## 시작하기
 상세한 사용법 및 클로드와의 협업 워크플로우는 `docs/ROBOT_GUIDE.md`를 참고하십시오.

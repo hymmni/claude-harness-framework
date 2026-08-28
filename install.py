@@ -11,7 +11,7 @@ Harness 부트스트랩 설치기 — 작업 레포 안에 클론한 템플릿�
 이 스크립트가 하는 일:
     1. 클론(harness/)의 harness 파일을 프로젝트 루트로 복사 (없는 파일만, 기존 파일·.git 보존)
     2. 기존 .gitignore 에 harness 규칙을 멱등하게 추가
-    3. harness 디렉토리(experiments/ references/ phases/) 생성
+    3. harness 디렉토리(experiments/ references/) 생성
     4. 클론 디렉토리(harness/)를 통째로 삭제해 스스로 정리
 
 기존 파일을 절대 덮어쓰지 않는다(비파괴). 기존 CLAUDE.md 가 있으면 harness 버전을
@@ -37,12 +37,11 @@ GITIGNORE_BEGIN = "# >>> harness gitignore (managed) >>>"
 GITIGNORE_END = "# <<< harness gitignore (managed) <<<"
 GITIGNORE_BLOCK = """\
 CLAUDE.harness.md
-.claude/
+.claude/*
+!.claude/skills/
 docs/private/
 experiments/
-phases/
 references/
-scripts/
 continuation_plan.md
 """
 
@@ -50,7 +49,7 @@ continuation_plan.md
 ALWAYS_SKIP = {".git", "__pycache__", ".pytest_cache", ".DS_Store"}
 # 클론 최상위에서만 제외할 항목 (설치 도구 자체 + README, .gitignore는 append로 처리)
 TOP_EXCLUDE = {"install.py", "README.md", ".gitignore"}
-HARNESS_DIRS = ("experiments", "references", "phases")
+HARNESS_DIRS = ("experiments", "references")
 
 
 def gitignore_text() -> str:

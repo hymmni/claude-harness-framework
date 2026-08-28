@@ -15,5 +15,5 @@
 
 ## 3. 유의 사항
 - **데이터 관리**: 대용량 데이터는 `.gitignore`에 의해 제외됩니다. 데이터셋은 심볼릭 링크(ln -s)를 사용하여 외부 경로와 연결하는 것을 권장합니다.
-- **환경 관리 (Environment)**: 가상환경 세팅(Conda yml, requirements.txt 등)은 작업 레포 루트에서 관리합니다. `install.py`가 대상 프로젝트의 `.gitignore`에 규칙을 추가하는데, `CLAUDE.md`와 `docs/`(단 `docs/private/`는 제외)는 기본으로 git 추적되고, 그 외 하네스 파일(`.claude/`, `docs/private/`, `scripts/`, `experiments/`, `phases/`, `references/`)은 로컬 전용으로 제외됩니다. (다르게 하고 싶다면 `.gitignore`에서 해당 규칙을 직접 수정하세요.)
+- **환경 관리 (Environment)**: 가상환경 세팅(Conda yml, requirements.txt 등)은 작업 레포 루트에서 관리합니다. `install.py`가 대상 프로젝트의 `.gitignore`에 규칙을 추가하는데, `CLAUDE.md`, `docs/`(단 `docs/private/`는 제외), `scripts/`, `.claude/skills/`는 기본으로 git 추적되고, 그 외 하네스 파일(`.claude/` 나머지, `docs/private/`, `experiments/`, `references/`)은 로컬 전용으로 제외됩니다. (다르게 하고 싶다면 `.gitignore`에서 해당 규칙을 직접 수정하세요.)
 
