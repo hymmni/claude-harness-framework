@@ -48,18 +48,9 @@ references/      # 외부 오픈소스를 분석용으로 Clone (Read-only) — 
 
 ## 세션 리밋 이어가기
 
-세션 리밋(5시간)에 걸려도 작업이 끊기지 않게 하는 두 가지 방법이 있습니다.
+세션 리밋(5시간)에 걸려도 작업이 끊기지 않게 `scripts/scheduler.py`로 재개를 예약할 수 있습니다.
 
-### tmux 자동 재개 (`scripts/tmux_autoresume.py`) — 권장
-
-claude를 tmux 안에서 띄우고, 감시 창이 화면을 폴링하다 리밋을 감지하면 **리셋 시각에 같은 세션에 `continue`를 자동 입력**합니다. 새 프로세스로 resume하는 게 아니라 살아있는 세션에 키를 넣는 방식이라 **대화가 갈라지지 않고**, 터미널을 닫아도 tmux라 생존합니다. 한 번 띄워두면 그 뒤는 무인으로 이어집니다.
-```bash
-sudo apt install -y tmux                       # 최초 1회
-python3 scripts/tmux_autoresume.py             # 세션 띄우고 claude+감시기 시작 → attach
-# 분리: Ctrl+b d   재접속: tmux attach -t claude-harness   창 전환: Ctrl+b 0/1
-```
-
-### 시각 예약 (`scripts/scheduler.py`) — 보조
+### 시각 예약 (`scripts/scheduler.py`)
 
 특정 시각에 **세션을 시작/재개**하거나 임의 명령을 실행합니다. 외부 터미널에서 켜두면 예약 시각에 카운트다운 후 실행됩니다. (execute.py가 리밋으로 끊긴 경우 재실행 예약 등에 유용 — execute.py는 재진입 가능하므로 다시 돌리면 이어집니다.)
 ```bash
