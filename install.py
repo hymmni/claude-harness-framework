@@ -17,17 +17,30 @@ Harness 부트스트랩 설치기 — 작업 레포 안에 클론한 템플릿�
 기존 파일을 절대 덮어쓰지 않는다(비파괴). 기존 CLAUDE.md 가 있으면 harness 버전을
 CLAUDE.harness.md 로 남겨 수동 병합하게 한다.
 
+Docker/devcontainer 개발 환경(docker-optional/)은 기본적으로 설치하지 않는다 — 대화형
+실행 시 물어보고, `--with-docker`로 강제 설치하거나 `--without-docker`(또는 `--yes`만 주고
+아무 지정 안 함)로 건너뛸 수 있다. 설치되는 파일의 `docker-compose.yml` image 이름, devcontainer
+이름은 대상 디렉터리 이름으로 자동 치환된다. 왜 이런 구조인지는 설치된 DOCKER.md 참고.
+
 from scratch로 시작하는 경우엔 이 스크립트가 필요 없다 — 템플릿을 프로젝트로 직접 클론한 뒤
 `rm install.py` 로 지우면 된다.
 """
 
 import argparse
+import re
 import shutil
 import sys
 from pathlib import Path
 
 CLONE_ROOT = Path(__file__).resolve().parent   # 클론된 템플릿 루트 (= harness/)
 TARGET_ROOT = CLONE_ROOT.parent                # 적용 대상 프로젝트 루트
+
+# Docker/devcontainer 스캐폴드는 옵션이라 기본 copy_tree 대상에서 빼고 별도로 다룬다
+# (docker-optional/ 아래는 대상 프로젝트 루트 레이아웃을 그대로 미러링함).
+DOCKER_SRC_DIRNAME = "docker-optional"
+PROJECT_NAME_PLACEHOLDER = "__PROJECT_NAME__"
+# docker-optional/ 안에서 플레이스홀더 치환이 필요한 파일들 (docker-optional 기준 상대경로)
+DOCKER_TEMPLATED_FILES = {"docker-compose.yml", ".devcontainer/devcontainer.json"}
 
 # --- .gitignore 블록 (대상 프로젝트 전용). 설치 시 대상의 .gitignore 에 append 되어
 #     harness 도구가 그 프로젝트 이력을 오염시키지 않게 한다.
@@ -47,9 +60,67 @@ GITIGNORE_BLOCK = """\
 
 # 어느 깊이에서든 복사하지 않을 잡파일 (git 메타, 캐시 등)
 ALWAYS_SKIP = {".git", "__pycache__", ".pytest_cache", ".DS_Store"}
-# 클론 최상위에서만 제외할 항목 (설치 도구 자체 + README, .gitignore는 append로 처리)
-TOP_EXCLUDE = {"install.py", "README.md", ".gitignore"}
+# 클론 최상위에서만 제외할 항목 (설치 도구 자체 + README, .gitignore는 append로 처리,
+# docker-optional/은 옵션이라 install_docker()가 별도로 처리)
+TOP_EXCLUDE = {"install.py", "README.md", ".gitignore", DOCKER_SRC_DIRNAME}
 HARNESS_DIRS = ("experiments", "references")
+
+
+def slugify_project_name(name: str) -> str:
+    """디렉터리 이름을 docker image 이름으로 쓸 수 있는 형태로 정리."""
+    slug = re.sub(r"[^a-z0-9._-]+", "-", name.lower()).strip("-")
+    return slug or "project"
+
+
+def copy_docker_tree(src: Path, dst: Path, project_slug: str, rel: Path = Path(".")) -> int:
+    """docker-optional/ 내용을 대상 루트로 복사. 지정된 파일만 __PROJECT_NAME__을 치환.
+    기존 파일은 건너뛴다(비파괴). 복사한 파일 수를 반환."""
+    count = 0
+    for item in src.iterdir():
+        if item.name in ALWAYS_SKIP:
+            continue
+        rel_path = rel / item.name
+        target = dst / item.name
+        if item.is_dir():
+            target.mkdir(exist_ok=True)
+            count += copy_docker_tree(item, target, project_slug, rel_path)
+        elif not target.exists():
+            if rel_path.as_posix() in DOCKER_TEMPLATED_FILES:
+                content = item.read_text(encoding="utf-8")
+                target.write_text(
+                    content.replace(PROJECT_NAME_PLACEHOLDER, project_slug), encoding="utf-8"
+                )
+            else:
+                shutil.copy2(item, target)
+            count += 1
+    return count
+
+
+def install_docker(assume_yes: bool, want_docker) -> None:
+    """want_docker: True/False로 명시되면 그대로 따르고, None이면 대화형으로 묻는다
+    (단, --yes로 비대화형일 땐 명시가 없으면 기본 미설치)."""
+    docker_src = CLONE_ROOT / DOCKER_SRC_DIRNAME
+    if not docker_src.exists():
+        return
+    if want_docker is None:
+        if assume_yes:
+            return
+        want_docker = confirm("  Docker/devcontainer 개발 환경 스캐폴드도 같이 설치할까요?", False)
+    if not want_docker:
+        return
+    project_slug = slugify_project_name(TARGET_ROOT.name)
+    n = copy_docker_tree(docker_src, TARGET_ROOT, project_slug)
+    print(f"  Docker 스캐폴드 설치: {n}개 파일 (image: {project_slug}/dev, DOCKER.md 참고)")
+    ensure_gitignore_line(TARGET_ROOT / ".gitignore", ".env")
+
+
+def ensure_gitignore_line(target: Path, line: str) -> None:
+    existing = target.read_text(encoding="utf-8") if target.exists() else ""
+    if any(l.strip() == line for l in existing.splitlines()):
+        return
+    sep = "" if existing == "" or existing.endswith("\n") else "\n"
+    target.write_text(existing + sep + line + "\n", encoding="utf-8")
+    print(f"  .gitignore: {line} 추가")
 
 
 def gitignore_text() -> str:
@@ -91,7 +162,7 @@ def confirm(prompt: str, assume_yes: bool) -> bool:
         return False
 
 
-def run_install(assume_yes: bool) -> int:
+def run_install(assume_yes: bool, want_docker=None) -> int:
     if not (CLONE_ROOT / "CLAUDE.md").exists():
         print("  ERROR: 이 스크립트는 git clone한 harness 템플릿 안에서 실행해야 합니다.")
         print("         cd <your-project> && git clone <url> harness && python3 harness/install.py")
@@ -120,6 +191,8 @@ def run_install(assume_yes: bool) -> int:
             (p / ".gitkeep").touch()
             print(f"  디렉토리 생성: {d}/")
 
+    install_docker(assume_yes, want_docker)
+
     shutil.rmtree(CLONE_ROOT)
     print(f"  clone 삭제: {CLONE_ROOT.name}/")
 
@@ -133,14 +206,23 @@ def run_install(assume_yes: bool) -> int:
 def main() -> int:
     ap = argparse.ArgumentParser(description="작업 레포 안에 클론한 harness 템플릿을 적용한다.")
     ap.add_argument("--yes", action="store_true", help="확인 프롬프트 생략")
+    ap.add_argument("--with-docker", action="store_true",
+                    help="Docker/devcontainer 개발 환경 스캐폴드도 함께 설치")
+    ap.add_argument("--without-docker", action="store_true",
+                    help="Docker 스캐폴드 설치 안 함 (프롬프트 생략)")
     ap.add_argument("--print-gitignore", action="store_true",
                     help=".gitignore 블록만 출력하고 종료 (템플릿 유지보수용)")
     args = ap.parse_args()
 
+    if args.with_docker and args.without_docker:
+        ap.error("--with-docker와 --without-docker는 동시에 줄 수 없습니다.")
+
     if args.print_gitignore:
         sys.stdout.write(gitignore_text())
         return 0
-    return run_install(args.yes)
+
+    want_docker = True if args.with_docker else (False if args.without_docker else None)
+    return run_install(args.yes, want_docker)
 
 
 if __name__ == "__main__":
